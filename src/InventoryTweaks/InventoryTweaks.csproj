@@ -17,7 +17,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Properties\" />
+		<Folder Include="Properties\" />
 	</ItemGroup>
 
 	<!-- Import Stationeers VS properties - paths etc. -->
@@ -27,6 +27,13 @@
 	<Import Project="$(SolutionDir)Stationeers.VS.References.props" />
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
+		<Exec
+			Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
+	</Target>
+
+	<Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
+		<MakeDir Directories="$(SolutionDir)\build" />
+		<ZipDirectory SourceDirectory="$(TargetDir)"
+		              DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
 	</Target>
 </Project>
