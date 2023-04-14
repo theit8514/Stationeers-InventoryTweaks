@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net46</TargetFramework>
+		<AssemblyName>InventoryTweaks</AssemblyName>
+		<Description>A mod to add better inventory management to Stationeers</Description>
+		<Version>0.1.0</Version>
+		<LangVersion>latest</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+		<PackageReference Include="BepInEx.Core" Version="5.*" />
+		<PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
+		<PackageReference Include="UnityEngine.Modules" Version="2021.2.13" IncludeAssets="compile" />
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Properties\" />
+	</ItemGroup>
+
+	<!-- Import Stationeers VS properties - paths etc. -->
+	<Import Project="$(SolutionDir)Stationeers.VS.props" />
+
+	<!-- Import Game/Unity DLL references -->
+	<Import Project="$(SolutionDir)Stationeers.VS.References.props" />
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Exec Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
+	</Target>
+</Project>
