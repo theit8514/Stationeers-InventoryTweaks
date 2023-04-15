@@ -22,7 +22,7 @@ internal class KeyManagerPatches
     [HarmonyPatch(nameof(KeyManager.SetupKeyBindings))]
     public static IEnumerable<CodeInstruction> SetupKeyBindings_Transpiler(IEnumerable<CodeInstruction> instructions)
     {
-        // looks for LDSFLD KeyManager.OnControlsChanged and inserts CALL KeyManagerPatches.InjectKeyBindings before it
+        // looks for LDSFLD KeyManager.OnControlsChanged and inserts CALL KeyManagerPatches.SetupKeyBindings before it
         var found = false;
         foreach (var instruction in instructions)
         {
