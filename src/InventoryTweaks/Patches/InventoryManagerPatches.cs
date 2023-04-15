@@ -67,9 +67,7 @@ internal class InventoryManagerPatches
         // When we move an item to the left/right hand slot, store the original slot reference.
         // Except if the source slot is a hand (prevents weird overwrites of original slot data).
         if (IsHandSlot(__instance) && !IsHandSlot(thingToMove.ParentSlot))
-        {
             OriginalSlots[thingToMove.ReferenceId] = thingToMove.ParentSlot;
-        }
     }
 
     /// <summary>
@@ -190,25 +188,23 @@ internal class InventoryManagerPatches
             }
 
             if (targetSlot == null)
-            {
                 UIAudioManager.Play(UIAudioManager.ActionFailHash);
-            }
             else
             {
                 OnServer.MoveToSlot(selectedSlot.Occupant, targetSlot);
                 UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
             }
         }
-        else if (InventoryManager.LeftHandSlot.Occupant == null)
+        else if (InventoryManager.ActiveHandSlot != null && InventoryManager.ActiveHandSlot.Occupant == null)
         {
             OriginalSlots[selectedSlot.Occupant.ReferenceId] = selectedSlot;
-            OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.LeftHandSlot);
+            OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.ActiveHandSlot);
             UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
         }
-        else if (InventoryManager.RightHandSlot.Occupant == null)
+        else if (InventoryManager.Instance.InactiveHand?.Slot != null && InventoryManager.Instance.InactiveHand.Slot.Occupant == null)
         {
             OriginalSlots[selectedSlot.Occupant.ReferenceId] = selectedSlot;
-            OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.RightHandSlot);
+            OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.Instance.InactiveHand.Slot);
             UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
         }
         else
