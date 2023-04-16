@@ -3,6 +3,7 @@ using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
 using HarmonyLib;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,13 +45,21 @@ internal class InventoryManagerPatches
     {
         if (selectedSlot == null || selectedSlot.Occupant == null)
             return false;
+        try
+        {
+            // If the item is stackable, run our stackable code.
+            if (selectedSlot.Occupant is Stackable stack && !DoubleClickMoveToHand_Stackable(selectedSlot, stack))
+                return false;
 
-        // If the item is stackable, run our stackable code.
-        if (selectedSlot.Occupant is Stackable stack && !DoubleClickMoveToHand_Stackable(selectedSlot, stack))
-            return false;
+            // Replace the base game DoubleClickMoveToHand with our own.
+            DoubleClickMoveToHand_Normal(selectedSlot);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogError(
+                $"Exception encountered on DoubleClickMoveToHand: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+        }
 
-        // Replace the base game DoubleClickMoveToHand with our own.
-        DoubleClickMoveToHand_Normal(selectedSlot);
         return false;
     }
 
