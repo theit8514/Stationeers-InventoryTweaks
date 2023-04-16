@@ -75,7 +75,7 @@ internal class InventoryManagerPatches
     {
         // When we move an item to the left/right hand slot, store the original slot reference.
         // Except if the source slot is a hand (prevents weird overwrites of original slot data).
-        if (IsHandSlot(__instance) && !IsHandSlot(thingToMove.ParentSlot))
+        if (thingToMove.ParentSlot != null && IsHandSlot(__instance) && !IsHandSlot(thingToMove.ParentSlot))
             OriginalSlots[thingToMove.ReferenceId] = thingToMove.ParentSlot;
     }
 
