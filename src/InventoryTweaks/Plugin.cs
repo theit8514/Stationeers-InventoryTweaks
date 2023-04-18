@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using InventoryTweaks.Helpers;
@@ -14,7 +14,9 @@ public class Plugin : BaseUnityPlugin
 {
     internal static ManualLogSource Log { get; private set; }
 
+#pragma warning disable IDE0051
     private void Awake()
+#pragma warning restore IDE0051
     {
         Log = Logger;
         Log.LogMessage($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");

@@ -1,4 +1,4 @@
-using Assets.Scripts.Inventory;
+﻿using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
@@ -212,7 +212,8 @@ internal class InventoryManagerPatches
             OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.ActiveHandSlot);
             UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
         }
-        else if (InventoryManager.Instance.InactiveHand?.Slot != null && InventoryManager.Instance.InactiveHand.Slot.Occupant == null)
+        else if (InventoryManager.Instance.InactiveHand?.Slot != null &&
+                 InventoryManager.Instance.InactiveHand.Slot.Occupant == null)
         {
             OriginalSlots[selectedSlot.Occupant.ReferenceId] = selectedSlot;
             OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.Instance.InactiveHand.Slot);
