@@ -1,8 +1,9 @@
-﻿using Assets.Scripts.Inventory;
+using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
 using HarmonyLib;
+using InventoryTweaks.Helpers;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -75,7 +76,8 @@ internal class InventoryManagerPatches
     {
         // When we move an item to the left/right hand slot, store the original slot reference.
         // Except if the source slot is a hand (prevents weird overwrites of original slot data).
-        if (thingToMove.ParentSlot != null && IsHandSlot(__instance) && !IsHandSlot(thingToMove.ParentSlot))
+        if (thingToMove.ParentSlot != null && SlotHelper.IsHandSlot(__instance) &&
+            !SlotHelper.IsHandSlot(thingToMove.ParentSlot))
             OriginalSlots[thingToMove.ReferenceId] = thingToMove.ParentSlot;
     }
 
@@ -108,7 +110,7 @@ internal class InventoryManagerPatches
                 var targetStack = stackSlot.Stack;
 
                 // Merge the items into the target stack.
-                var target = $"slot {GetSlotDisplayName(slot)}";
+                var target = $"slot {SlotHelper.GetSlotDisplayName(slot)}";
                 Plugin.Log.LogInfo(
                     $"Merging {stack.Quantity} items into {target} which has {targetStack.Quantity} items.");
                 OnServer.Merge(targetStack, stack);
@@ -153,7 +155,7 @@ internal class InventoryManagerPatches
             if (OriginalSlots.TryGetValue(selectedSlot.Occupant.ReferenceId, out var originalSlot))
             {
                 Plugin.Log.LogInfo(
-                    $"Returning {selectedSlot.Occupant.DisplayName} to original slot {GetSlotDisplayName(originalSlot)}");
+                    $"Returning {selectedSlot.Occupant.DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
                 // Checks to ensure that we can move this item back to this slot:
                 if (originalSlot.Parent?.RootParentHuman == null)
                     Plugin.Log.LogWarning("Original slot was not attached to a human");
@@ -222,7 +224,8 @@ internal class InventoryManagerPatches
 
     private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
     {
-        Plugin.Log.LogDebug($"Hand slot {GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Occupant?.DisplayName}");
+        Plugin.Log.LogDebug(
+            $"Hand slot {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Occupant?.DisplayName}");
         if (targetSlot.Occupant == null ||
             targetSlot.Occupant == selectedSlot.Occupant)
             return true;
@@ -233,7 +236,7 @@ internal class InventoryManagerPatches
 
         // Merge the items into the target stack.
         Plugin.Log.LogInfo(
-            $"Merging {stack.Quantity} items into {GetSlotDisplayName(targetSlot)} which has {targetStack.Quantity} items.");
+            $"Merging {stack.Quantity} items into {SlotHelper.GetSlotDisplayName(targetSlot)} which has {targetStack.Quantity} items.");
         OnServer.Merge(targetStack, stack);
         // The source stack will now contain the remaining quantity or zero.
         Plugin.Log.LogDebug($"Target quantity: {targetStack.Quantity} Source quantity: {stack.Quantity}");
@@ -279,18 +282,6 @@ internal class InventoryManagerPatches
         return InventoryWindowManager.Instance.Windows
             .Where(window => !(!window.IsVisible & requiredVisible))
             .SelectMany(window => window.Parent.Slots);
-    }
-
-    private static bool IsHandSlot(Slot slot)
-    {
-        return slot == InventoryManager.LeftHandSlot ||
-               slot == InventoryManager.RightHandSlot;
-    }
-
-    private static string GetSlotDisplayName(Slot slot)
-    {
-        var displayName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
-        return $"{displayName} {slot.SlotId}";
     }
 
     private class StackSlot
