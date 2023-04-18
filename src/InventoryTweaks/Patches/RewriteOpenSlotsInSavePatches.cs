@@ -85,7 +85,7 @@ internal class RewriteOpenSlotsInSavePatches
                 var stringHash = window.ParentSlot.StringHash;
                 // For non-standard slots (e.g. an open tablet) the StringHash will be zero.
                 // This is not useful for re-opening that same window, so rewrite it with the parent reference id.
-                if (stringHash == 0)
+                if (stringHash == 0 && window.Parent != null)
                 {
                     // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
                     // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
