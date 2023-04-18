@@ -78,7 +78,7 @@ internal class RewriteOpenSlotsInSavePatches
     {
         if (!GameManager.IsBatchMode)
         {
-            Plugin.Log.LogInfo("Re-writing OpenSlots data in WorldData.");
+            Plugin.Log.LogDebug("Re-writing OpenSlots data in WorldData.");
             __result.UserInterface.OpenSlots = new List<WindowSaveData>();
             foreach (var window in InventoryWindowManager.Instance.Windows.Where(window => window.GameObject != null))
             {
@@ -93,7 +93,7 @@ internal class RewriteOpenSlotsInSavePatches
                     try
                     {
                         stringHash = Convert.ToInt32(window.Parent.ReferenceId);
-                        Plugin.Log.LogInfo($"Writing ReferenceId {stringHash} into StringHash.");
+                        Plugin.Log.LogDebug($"Writing ReferenceId {stringHash} into StringHash.");
                     }
                     catch (OverflowException)
                     {
