@@ -1,4 +1,4 @@
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using InventoryTweaks.Helpers;
@@ -19,6 +19,7 @@ public class Plugin : BaseUnityPlugin
 #pragma warning restore IDE0051
     {
         Log = Logger;
+        ConfigHelper.LoadConfig(Config);
         Log.LogMessage($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
 
         var instance = new Harmony("InventoryTweaksPatches");
@@ -26,5 +27,7 @@ public class Plugin : BaseUnityPlugin
         instance.PatchAll(typeof(InventoryManagerPatches));
         instance.PatchAll(typeof(InventoryWindowManagerPatches));
         instance.PatchAll(typeof(KeyManagerPatches));
+        if (ConfigHelper.General.EnableRewriteOpenSlots)
+            instance.PatchAll(typeof(RewriteOpenSlotsInSavePatches));
     }
 }
