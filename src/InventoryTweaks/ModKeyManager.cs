@@ -1,12 +1,14 @@
 ﻿using HarmonyLib;
 using InventoryTweaks.Handlers;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace InventoryTweaks.Patches;
+namespace InventoryTweaks;
 
-internal class KeyManagerPatches
+public static class ModKeyManager
 {
     private static readonly FieldInfo KeyManagerOnControlsChangedField =
         AccessTools.Field(typeof(KeyManager), nameof(KeyManager.OnControlsChanged));
@@ -17,10 +19,13 @@ internal class KeyManagerPatches
     private static readonly MethodInfo InjectLoadKeyboardSetting =
         SymbolExtensions.GetMethodInfo(() => LoadKeyboardSetting());
 
+    private static readonly List<KeyPressHandler> Keys = new();
+    public static event EventHandler<RegisterKeyPressHandlersArguments> RegisterKeyPressHandlers;
+
     [HarmonyTranspiler]
     [HarmonyPatch(typeof(KeyManager))]
     [HarmonyPatch(nameof(KeyManager.SetupKeyBindings))]
-    public static IEnumerable<CodeInstruction> SetupKeyBindings_Transpiler(IEnumerable<CodeInstruction> instructions)
+    private static IEnumerable<CodeInstruction> SetupKeyBindings_Transpiler(IEnumerable<CodeInstruction> instructions)
     {
         // looks for LDSFLD KeyManager.OnControlsChanged and inserts CALL KeyManagerPatches.SetupKeyBindings before it
         var found = false;
@@ -45,7 +50,8 @@ internal class KeyManagerPatches
     [HarmonyTranspiler]
     [HarmonyPatch(typeof(KeyManager))]
     [HarmonyPatch(nameof(KeyManager.LoadKeyboardSetting))]
-    public static IEnumerable<CodeInstruction> LoadKeyboardSetting_Transpiler(IEnumerable<CodeInstruction> instructions)
+    private static IEnumerable<CodeInstruction> LoadKeyboardSetting_Transpiler(
+        IEnumerable<CodeInstruction> instructions)
     {
         // looks for LDSFLD KeyManager.OnControlsChanged and inserts CALL KeyManagerPatches.LoadKeyboardSetting before it
         var found = false;
@@ -72,28 +78,40 @@ internal class KeyManagerPatches
     [HarmonyPatch("SetBindings")]
     public static void SetBindings_Prefix()
     {
-        Plugin.Log.LogDebug("Adding bindings");
-        KeyMapExtended.HeldItemNext.Bind();
-        KeyMapExtended.DebugWindows.Bind();
-    }
-
-    private static void SetupKeyBindings()
-    {
-        Plugin.Log.LogInfo("Adding new controls group InventoryTweaks");
-        var controlsGroup = new ControlsGroup("InventoryTweaks");
-        KeyMapExtended.HeldItemNext.AddKey(controlsGroup);
-        KeyMapExtended.DebugWindows.AddKey(controlsGroup);
+        Keys.ForEach(x => x.Bind());
     }
 
     private static void LoadKeyboardSetting()
     {
-        KeyMapExtended.HeldItemNext.AssignKey();
-        KeyMapExtended.DebugWindows.AssignKey();
+        Keys.ForEach(x => x.AssignKey());
     }
 
-    private static class KeyMapExtended
+    private static void SetupKeyBindings()
     {
-        public static readonly HeldItemNextKeyPressHandler HeldItemNext = new();
-        public static readonly DebugWindowsKeyPressHandler DebugWindows = new();
+        OnRegisterKeyPressHandlers(new RegisterKeyPressHandlersArguments());
+    }
+
+    private static void OnRegisterKeyPressHandlers(RegisterKeyPressHandlersArguments e)
+    {
+        RegisterKeyPressHandlers?.Invoke(null, e);
+    }
+
+    public class RegisterKeyPressHandlersArguments
+    {
+        public void AddKey(KeyPressHandler handler, ControlsGroup controlsGroup)
+        {
+            handler.AddKey(controlsGroup);
+            Keys.Add(handler);
+        }
+
+        public ControlsGroup AddControlsGroup(string name)
+        {
+            var controlsGroup = ControlsGroup.AllControlGroups.FirstOrDefault(x => x.Name == name);
+            if (controlsGroup != null)
+                return controlsGroup;
+
+            Plugin.Log.LogInfo($"Adding new controls group {name}");
+            return new ControlsGroup(name);
+        }
     }
 }
