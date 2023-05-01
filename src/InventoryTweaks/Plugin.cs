@@ -27,6 +27,7 @@ public class Plugin : BaseUnityPlugin
             var controlsGroup = arguments.AddControlsGroup("InventoryTweaks");
             arguments.AddKey(new HeldItemNextKeyPressHandler(), controlsGroup);
             arguments.AddKey(new DebugWindowsKeyPressHandler(), controlsGroup);
+            arguments.AddKey(new LockSlotKeyPressHandler(), controlsGroup);
         };
 
         var modKeyManager = new Harmony("ModKeyManager");
@@ -38,5 +39,7 @@ public class Plugin : BaseUnityPlugin
         instance.PatchAll(typeof(InventoryWindowManagerPatches));
         if (ConfigHelper.General.EnableRewriteOpenSlots)
             instance.PatchAll(typeof(RewriteOpenSlotsInSavePatches));
+        if (ConfigHelper.General.EnableSaveLockedSlots)
+            instance.PatchAll(typeof(SaveLockedSlotsPatches));
     }
 }
