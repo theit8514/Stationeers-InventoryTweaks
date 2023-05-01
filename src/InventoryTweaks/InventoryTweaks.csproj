@@ -33,7 +33,6 @@
 
 	<Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
 		<MakeDir Directories="$(SolutionDir)\build" />
-		<ZipDirectory SourceDirectory="$(TargetDir)"
-		              DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
+		<ZipDirectory SourceDirectory="$(TargetDir)" DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
 	</Target>
 </Project>
