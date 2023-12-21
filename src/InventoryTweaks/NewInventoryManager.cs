@@ -171,7 +171,7 @@ public static class NewInventoryManager
     /// </summary>
     /// <param name="selectedSlot"></param>
     /// <param name="targetSlots"></param>
-    private static void DoubleClickMoveToInventory(Slot selectedSlot, IEnumerable<SlotData> targetSlots)
+    private static void DoubleClickMoveToInventory(Slot selectedSlot, SlotData[] targetSlots)
     {
         Slot targetSlot = null;
         // Find this Thing reference in the original slots dictionary.
@@ -189,6 +189,8 @@ public static class NewInventoryManager
             else if (!(originalSlot.Type == Slot.Class.None || // And the slot is type None
                        originalSlot.Type == selectedSlot.Get().SlotType))
                 Plugin.Log.LogWarning("Original slot is not a valid type for this item");
+            else if (targetSlots.All(x => !ReferenceEquals(x.Slot, originalSlot)))
+                Plugin.Log.LogWarning("Original slot is not a valid target");
             else
                 // Set the target slot to the original slot
                 targetSlot = originalSlot;
