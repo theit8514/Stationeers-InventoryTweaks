@@ -33,6 +33,9 @@ internal class RewriteOpenSlotsInSavePatches
         var allSlots = RecurseFilledSlots(InventoryManager.ParentHuman).ToArray();
         foreach (var openSlot in userInterfaceSaveData.OpenSlots.Where(openSlot => openSlot.IsOpen))
         {
+            if (openSlot.StringHash == 0)
+                continue;
+
             Plugin.Log.LogDebug(
                 $"Open slot: {openSlot.StringHash} {openSlot.SlotId} {openSlot.Position} {openSlot.IsOpen} {openSlot.IsUndocked}");
             var slot = allSlots.FirstOrDefault(x => x.StringHash == openSlot.StringHash);
