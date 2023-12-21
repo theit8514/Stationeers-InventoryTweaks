@@ -24,7 +24,7 @@ public class HeldItemNextKeyPressHandler : KeyPressHandler
         if (!Human.LocalHuman)
             return;
 
-        var item = InventoryManager.Instance.ActiveHand?.Slot?.Occupant;
+        var item = InventoryManager.Instance.ActiveHand?.Slot?.Get();
         if (item == null)
             return;
 

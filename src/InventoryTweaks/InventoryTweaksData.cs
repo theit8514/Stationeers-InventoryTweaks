@@ -56,7 +56,7 @@ public class InventoryTweaksData
 
     public bool CanPlaceInSlot(DynamicThing thing, Slot slot)
     {
-        if (slot.Occupant != null || slot.Parent == null)
+        if (slot.Get() != null || slot.Parent == null)
             return false;
         if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotId), out var lockedSlot))
             return true;

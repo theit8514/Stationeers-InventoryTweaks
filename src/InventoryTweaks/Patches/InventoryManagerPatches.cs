@@ -26,7 +26,7 @@ internal class InventoryManagerPatches
     // ReSharper disable once InconsistentNaming
     public static bool AllowSwap_Prefix(ref bool __result, Slot sourceSlot, DynamicThing destination)
     {
-        if (sourceSlot?.Occupant == null || destination == null)
+        if (sourceSlot?.Get() == null || destination == null)
             return true;
 
         if (NewInventoryManager.AllowSwap(sourceSlot, destination) == false)
@@ -43,7 +43,7 @@ internal class InventoryManagerPatches
     // ReSharper disable once InconsistentNaming
     public static bool AllowSwap_Prefix(ref bool __result, Slot sourceSlot, Slot destinationSlot)
     {
-        if (sourceSlot?.Occupant == null || destinationSlot?.Occupant == null)
+        if (sourceSlot?.Get() == null || destinationSlot?.Get() == null)
             return true;
 
         if (NewInventoryManager.AllowSwap(sourceSlot, destinationSlot) == false)

@@ -1,4 +1,4 @@
-﻿using Assets.Scripts;
+using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Serialization;
@@ -20,10 +20,10 @@ internal class RewriteOpenSlotsInSavePatches
     {
         static IEnumerable<Slot> RecurseFilledSlots(Thing parent)
         {
-            foreach (var slot in parent.Slots.Where(x => x.Occupant != null))
+            foreach (var slot in parent.Slots.Where(x => x.Get() != null))
             {
                 yield return slot;
-                foreach (var childSlot in RecurseFilledSlots(slot.Occupant))
+                foreach (var childSlot in RecurseFilledSlots(slot.Get()))
                 {
                     yield return childSlot;
                 }
@@ -40,7 +40,7 @@ internal class RewriteOpenSlotsInSavePatches
             {
                 Plugin.Log.LogWarning($"Slot with StringHash {openSlot.StringHash} not found. Is it a ReferenceId?");
                 // Try to find this slot by ReferenceId on our current player.
-                slot = allSlots.FirstOrDefault(x => x.Occupant.ReferenceId == openSlot.StringHash);
+                slot = allSlots.FirstOrDefault(x => x.Get().ReferenceId == openSlot.StringHash);
             }
 
             if (slot?.Display == null)
@@ -58,15 +58,18 @@ internal class RewriteOpenSlotsInSavePatches
             }
 
             Plugin.Log.LogInfo(
-                $"Opening window for slot {SlotHelper.GetSlotDisplayName(slot)} with item {slot.Occupant.DisplayName}.");
+                $"Opening window for slot {SlotHelper.GetSlotDisplayName(slot)} with item {slot.Get().DisplayName}.");
             Traverse.Create(slot.Display).Method("OnPlayerInteract").GetValue();
-            var inventoryWindow = slot.Display.SlotWindow;
-            if (inventoryWindow != null && openSlot.IsUndocked)
+            var slotWindow = slot.Display.SlotWindow;
+            if (slotWindow != null && openSlot.IsUndocked)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(inventoryWindow.RectTransform);
-                inventoryWindow.Undocked();
-                inventoryWindow.RectTransform.position = openSlot.Position;
-                inventoryWindow.ClampToScreen();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(slotWindow.RectTransform);
+                slotWindow.Undocked();
+                Plugin.Log.LogInfo($"Current position: {slotWindow.RectTransform.position}");
+                Plugin.Log.LogInfo($"New position: {openSlot.Position}");
+                slotWindow.RectTransform.position = openSlot.Position;
+                slotWindow.ClampToScreen();
+                Plugin.Log.LogInfo($"Clamped position: {slotWindow.RectTransform.position}");
             }
         }
     }

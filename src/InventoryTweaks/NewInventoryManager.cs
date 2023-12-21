@@ -42,31 +42,31 @@ public static class NewInventoryManager
     /// <param name="selectedSlot"></param>
     public static void DoubleClickMove(Slot selectedSlot)
     {
-        if (selectedSlot == null || selectedSlot.Occupant == null)
+        if (selectedSlot == null || selectedSlot.Get() == null)
             return;
         try
         {
-            var targetSlots = GetTargetSlotsOrdered(selectedSlot.Occupant)
+            var targetSlots = GetTargetSlotsOrdered(selectedSlot.Get())
                 .ToArray();
 
             // If the item is stackable, run our stackable code.
-            if (selectedSlot.Occupant is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
+            if (selectedSlot.Get() is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
                 return;
 
-            if (InventoryManager.LeftHandSlot.Occupant == selectedSlot.Occupant ||
-                InventoryManager.RightHandSlot.Occupant == selectedSlot.Occupant)
+            if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
+                InventoryManager.RightHandSlot.Get() == selectedSlot.Get())
                 DoubleClickMoveToInventory(selectedSlot, targetSlots);
-            else if (InventoryManager.ActiveHandSlot != null && InventoryManager.ActiveHandSlot.Occupant == null)
+            else if (InventoryManager.ActiveHandSlot != null && InventoryManager.ActiveHandSlot.Get() == null)
             {
-                OriginalSlots[selectedSlot.Occupant.ReferenceId] = selectedSlot;
-                OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.ActiveHandSlot);
+                OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.ActiveHandSlot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
             }
             else if (InventoryManager.Instance.InactiveHand?.Slot != null &&
-                     InventoryManager.Instance.InactiveHand.Slot.Occupant == null)
+                     InventoryManager.Instance.InactiveHand.Slot.Get() == null)
             {
-                OriginalSlots[selectedSlot.Occupant.ReferenceId] = selectedSlot;
-                OnServer.MoveToSlot(selectedSlot.Occupant, InventoryManager.Instance.InactiveHand.Slot);
+                OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.Instance.InactiveHand.Slot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
             }
             else
@@ -116,8 +116,8 @@ public static class NewInventoryManager
     private static bool DoubleClickMoveStackable(Slot selectedSlot, Stackable stack, IEnumerable<SlotData> targetSlots)
     {
         // If the selected item is in our hand, try to fill the inventory first
-        if (InventoryManager.LeftHandSlot.Occupant == selectedSlot.Occupant ||
-            InventoryManager.RightHandSlot.Occupant == selectedSlot.Occupant)
+        if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
+            InventoryManager.RightHandSlot.Get() == selectedSlot.Get())
         {
             Plugin.Log.LogInfo($"Finding slot in inventory to place {stack.Quantity} of {stack.DisplayName}");
             // Search for valid slots in the inventory
@@ -175,37 +175,37 @@ public static class NewInventoryManager
     {
         Slot targetSlot = null;
         // Find this Thing reference in the original slots dictionary.
-        if (OriginalSlots.TryGetValue(selectedSlot.Occupant.ReferenceId, out var originalSlot))
+        if (OriginalSlots.TryGetValue(selectedSlot.Get().ReferenceId, out var originalSlot))
         {
             Plugin.Log.LogInfo(
-                $"Returning {selectedSlot.Occupant.DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
+                $"Returning {selectedSlot.Get().DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
             // Checks to ensure that we can move this item back to this slot:
             if (originalSlot.Parent?.RootParentHuman == null)
                 Plugin.Log.LogWarning("Original slot was not attached to a human");
             else if (originalSlot.Parent.RootParentHuman != InventoryManager.ParentHuman)
                 Plugin.Log.LogWarning("Original slot was not our human");
-            else if (originalSlot.Occupant != null)
+            else if (originalSlot.Get() != null)
                 Plugin.Log.LogWarning("Original slot is already filled");
             else if (!(originalSlot.Type == Slot.Class.None || // And the slot is type None
-                       originalSlot.Type == selectedSlot.Occupant.SlotType))
+                       originalSlot.Type == selectedSlot.Get().SlotType))
                 Plugin.Log.LogWarning("Original slot is not a valid type for this item");
             else
                 // Set the target slot to the original slot
                 targetSlot = originalSlot;
 
             // Always clear the slot data so that we don't leave the reference around
-            OriginalSlots.Remove(selectedSlot.Occupant.ReferenceId);
+            OriginalSlots.Remove(selectedSlot.Get().ReferenceId);
         }
 
         if (targetSlot == null)
         {
-            Plugin.Log.LogInfo($"Finding slot for {selectedSlot.Occupant.DisplayName}");
+            Plugin.Log.LogInfo($"Finding slot for {selectedSlot.Get().DisplayName}");
             // Find slot that is not occupied.
             foreach (var slot in targetSlots.Where(x => x.IsOccupied == false))
             {
                 Plugin.Log.LogInfo(
                     $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
-                if (slot.IsLocked && slot.LockedToPrefabHash != selectedSlot.Occupant.PrefabHash)
+                if (slot.IsLocked && slot.LockedToPrefabHash != selectedSlot.Get().PrefabHash)
                     continue;
 
                 targetSlot = slot.Slot;
@@ -215,24 +215,24 @@ public static class NewInventoryManager
 
         // This code is largely unchanged from the base code, except for the ordering of operations.
         // If we didn't find the original slot, find a free slot of this type or a slot from the open inventory.
-        targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(selectedSlot.Occupant.SlotType, ExcludeHandSlots) ??
-                       FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(selectedSlot.Occupant.SlotType, true);
+        targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(selectedSlot.Get().SlotType, ExcludeHandSlots) ??
+                       FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(selectedSlot.Get().SlotType, true);
         if (targetSlot == null)
         {
             // If the slot was not found, find the next available slot in the main slots.
             foreach (var slot in InventoryManager.ParentHuman.Slots)
             {
-                if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Occupant == null)
+                if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Get() == null)
                     continue;
 
-                var freeSlot = slot.Occupant.GetFreeSlot(selectedSlot.Occupant.SlotType);
+                var freeSlot = slot.Get().GetFreeSlot(selectedSlot.Get().SlotType);
                 if (freeSlot == null)
                     continue;
 
                 targetSlot = freeSlot;
                 InventoryManager.Instance.StartCoroutine(
                     PerformHiddenSlotMoveToAnimation.GetValue<IEnumerator>(slot, selectedSlot,
-                        selectedSlot.Occupant));
+                        selectedSlot.Get()));
                 break;
             }
         }
@@ -241,7 +241,7 @@ public static class NewInventoryManager
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
         else
         {
-            OnServer.MoveToSlot(selectedSlot.Occupant, targetSlot);
+            OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
             UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
         }
     }
@@ -280,12 +280,12 @@ public static class NewInventoryManager
     private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
     {
         Plugin.Log.LogDebug(
-            $"Hand slot {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Occupant?.DisplayName}");
-        if (targetSlot.Occupant == null ||
-            targetSlot.Occupant == selectedSlot.Occupant)
+            $"Hand slot {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
+        if (targetSlot.Get() == null ||
+            targetSlot.Get() == selectedSlot.Get())
             return true;
 
-        var targetStack = targetSlot.Occupant as Stackable;
+        var targetStack = targetSlot.Get() as Stackable;
         if (targetStack == null || !targetStack.CanStack(stack))
             return true;
 
@@ -311,9 +311,9 @@ public static class NewInventoryManager
     private static IEnumerable<Slot> RecurseSlots(Slot slot)
     {
         yield return slot;
-        if (slot.Occupant == null || !slot.Occupant.HasSlots)
+        if (slot.Get() == null || !slot.Get().HasSlots)
             yield break;
-        foreach (var childSlot in slot.Occupant.Slots.SelectMany(RecurseSlots))
+        foreach (var childSlot in slot.Get().Slots.SelectMany(RecurseSlots))
         {
             yield return childSlot;
         }
@@ -329,15 +329,15 @@ public static class NewInventoryManager
 
         var parentReferenceId = currentSlot.Slot.Parent.ReferenceId;
         var slotId = currentSlot.Slot.SlotId;
-        if (currentSlot.Slot.Occupant == null)
+        if (currentSlot.Slot.Get() == null)
         {
             Data.UnlockSlot(parentReferenceId, slotId);
             ConsoleWindow.Print("Slot is now unlocked and may accept any item.", aged: false);
         }
         else
         {
-            Data.LockSlot(parentReferenceId, slotId, currentSlot.Slot.Occupant);
-            ConsoleWindow.Print($"Slot is now locked to '{currentSlot.Slot.Occupant.DisplayName}'.", aged: false);
+            Data.LockSlot(parentReferenceId, slotId, currentSlot.Slot.Get());
+            ConsoleWindow.Print($"Slot is now locked to '{currentSlot.Slot.Get().DisplayName}'.", aged: false);
         }
     }
 
@@ -356,13 +356,13 @@ public static class NewInventoryManager
     {
         if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotId, out var sourceLock))
         {
-            if (destinationSlot.Occupant.GetPrefabHash() != sourceLock.PrefabHash)
+            if (destinationSlot.Get().GetPrefabHash() != sourceLock.PrefabHash)
                 return false;
         }
 
         if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotId, out var destinationLock))
         {
-            if (sourceSlot.Occupant.GetPrefabHash() != destinationLock.PrefabHash)
+            if (sourceSlot.Get().GetPrefabHash() != destinationLock.PrefabHash)
                 return false;
         }
 
@@ -393,7 +393,7 @@ public static class NewInventoryManager
         public Slot Slot { get; }
         public InventoryWindow Window => Slot.Display?.SlotWindow;
         public bool IsVisible => Window?.IsVisible ?? false;
-        public DynamicThing Occupant => Slot.Occupant;
+        public DynamicThing Occupant => Slot.Get();
         public bool IsOccupied => Occupant != null;
         public int OccupantPrefabHash => Occupant.PrefabHash;
         public Stackable Stackable => Occupant as Stackable;
