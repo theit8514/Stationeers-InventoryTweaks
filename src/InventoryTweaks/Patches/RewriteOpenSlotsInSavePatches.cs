@@ -8,6 +8,7 @@ using InventoryTweaks.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace InventoryTweaks.Patches;
@@ -90,48 +91,65 @@ internal class RewriteOpenSlotsInSavePatches
     }
 
     [HarmonyPostfix]
+    [HarmonyPatch(typeof(InventoryWindowManager), nameof(InventoryWindowManager.GenerateUISaveData))]
+    // ReSharper disable once InconsistentNaming
+    public static void GenerateUISaveData_Postfix(UserInterfaceSaveData __result)
+    {
+        ReplaceUserInterfaceOpenSlots(__result);
+    }
+
+    [HarmonyPostfix]
     [HarmonyPatch(typeof(XmlSaveLoad), "GetWorldData")]
     // ReSharper disable once InconsistentNaming
     public static void GetWorldData_Postfix(XmlSaveLoad.WorldData __result)
     {
-        if (!GameManager.IsBatchMode)
-        {
-            Plugin.Log.LogDebug("Re-writing OpenSlots data in WorldData.");
-            __result.UserInterface.OpenSlots = new List<WindowSaveData>();
-            foreach (var window in InventoryWindowManager.Instance.Windows.Where(window => window.GameObject != null))
-            {
-                var stringHash = window.ParentSlot.StringHash;
-                // For non-standard slots (e.g. an open tablet) the StringHash will be zero.
-                // This is not useful for re-opening that same window, so rewrite it with the parent reference id.
-                if (stringHash == 0 && window.Parent != null)
-                {
-                    // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
-                    // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
-                    // in the world to overflow this value.
-                    try
-                    {
-                        stringHash = Convert.ToInt32(window.Parent.ReferenceId);
-                        Plugin.Log.LogDebug($"Writing ReferenceId {stringHash} into StringHash.");
-                    }
-                    catch (OverflowException)
-                    {
-                        Plugin.Log.LogWarning(
-                            $"Could not save open slot data for {window.Parent.DisplayName} because reference id {window.Parent.ReferenceId} won't fit into int.");
-                    }
-                }
+        if (GameManager.IsBatchMode)
+            return;
+        Plugin.Log.LogDebug("Re-writing OpenSlots data in WorldData.");
+        var saveData = __result.UserInterface;
+        ReplaceUserInterfaceOpenSlots(saveData);
+    }
 
-                // Note, that if we were smarter, we could add a ReferenceId to this WindowSaveData and serialize it.
-                // That would require us override the xml serialization, which does not seem advisable at this point.
-                __result.UserInterface.OpenSlots.Add(new WindowSaveData // ExtendedWindowSaveData
+    private static void ReplaceUserInterfaceOpenSlots(UserInterfaceSaveData saveData)
+    {
+        saveData.OpenSlots ??= new List<WindowSaveData>();
+        saveData.OpenSlots.Clear();
+        foreach (var window in InventoryWindowManager.Instance.Windows.Where(window => window.GameObject != null))
+        {
+            var stringHash = window.ParentSlot.StringHash;
+            // For non-standard slots (e.g. an open tablet) the StringHash will be zero.
+            // This is not useful for re-opening that same window, so rewrite it with the parent reference id.
+            if ((stringHash == 0 || stringHash == Animator.StringToHash("Tool")) && window.Parent != null)
+            {
+                // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
+                // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
+                // in the world to overflow this value.
+                try
                 {
-                    //ReferenceId = window.Parent?.ReferenceId ?? -1,
-                    SlotId = window.ParentSlot.SlotId,
-                    StringHash = stringHash,
-                    IsOpen = window.IsVisible,
-                    IsUndocked = window.IsUndocked,
-                    Position = window.RectTransform.position
-                });
+                    stringHash = Convert.ToInt32(window.Parent.ReferenceId);
+                    Plugin.Log.LogDebug($"Writing ReferenceId {stringHash} into StringHash.");
+                }
+                catch (OverflowException)
+                {
+                    Plugin.Log.LogWarning(
+                        $"Could not save open slot data for {window.Parent.DisplayName} because reference id {window.Parent.ReferenceId} won't fit into int.");
+                }
             }
+
+            // Note, that if we were smarter, we could add a ReferenceId to this WindowSaveData and serialize it.
+            // That would require us override the xml serialization, which does not seem advisable at this point.
+            var openSlot = new WindowSaveData // ExtendedWindowSaveData
+            {
+                //ReferenceId = window.Parent?.ReferenceId ?? -1,
+                SlotId = window.ParentSlot.SlotId,
+                StringHash = stringHash,
+                IsOpen = window.IsVisible,
+                IsUndocked = window.IsUndocked,
+                Position = window.RectTransform.position
+            };
+            Plugin.Log.LogDebug(
+                $"Open slot: {openSlot.StringHash} {openSlot.SlotId} {openSlot.Position} {openSlot.IsOpen} {openSlot.IsUndocked}");
+            saveData.OpenSlots.Add(openSlot);
         }
     }
 
