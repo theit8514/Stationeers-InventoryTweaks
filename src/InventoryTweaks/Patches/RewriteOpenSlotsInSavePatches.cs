@@ -30,6 +30,18 @@ internal class RewriteOpenSlotsInSavePatches
             }
         }
 
+        if (userInterfaceSaveData?.OpenSlots == null)
+        {
+            Plugin.Log.LogInfo("OpenSlots was null");
+            return;
+        }
+
+        if (InventoryManager.ParentHuman == null)
+        {
+            Plugin.Log.LogInfo("ParentHuman was null");
+            return;
+        }
+
         var allSlots = RecurseFilledSlots(InventoryManager.ParentHuman).ToArray();
         foreach (var openSlot in userInterfaceSaveData.OpenSlots.Where(openSlot => openSlot.IsOpen))
         {
