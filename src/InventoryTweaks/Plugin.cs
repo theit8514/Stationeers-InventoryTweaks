@@ -1,6 +1,7 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using InventoryTweaks.Handlers;
 using InventoryTweaks.Helpers;
 using InventoryTweaks.Patches;
 using JetBrains.Annotations;
@@ -21,13 +22,24 @@ public class Plugin : BaseUnityPlugin
         Log = Logger;
         ConfigHelper.LoadConfig(Config);
         Log.LogMessage($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+        ModKeyManager.RegisterKeyPressHandlers += (_, arguments) =>
+        {
+            var controlsGroup = arguments.AddControlsGroup("InventoryTweaks");
+            arguments.AddKey(new HeldItemNextKeyPressHandler(), controlsGroup);
+            arguments.AddKey(new DebugWindowsKeyPressHandler(), controlsGroup);
+            arguments.AddKey(new LockSlotKeyPressHandler(), controlsGroup);
+        };
+
+        var modKeyManager = new Harmony("ModKeyManager");
+        modKeyManager.PatchAll(typeof(ModKeyManager));
 
         var instance = new Harmony("InventoryTweaksPatches");
         instance.PatchAll(typeof(KeyBindHelpers));
         instance.PatchAll(typeof(InventoryManagerPatches));
         instance.PatchAll(typeof(InventoryWindowManagerPatches));
-        instance.PatchAll(typeof(KeyManagerPatches));
         if (ConfigHelper.General.EnableRewriteOpenSlots)
             instance.PatchAll(typeof(RewriteOpenSlotsInSavePatches));
+        if (ConfigHelper.General.EnableSaveLockedSlots)
+            instance.PatchAll(typeof(SaveLockedSlotsPatches));
     }
 }

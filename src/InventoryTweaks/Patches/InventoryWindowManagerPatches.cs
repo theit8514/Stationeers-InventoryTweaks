@@ -28,6 +28,6 @@ internal class InventoryWindowManagerPatches
     {
         // Minor fix to window names, used for debugging windows.
         if (string.IsNullOrEmpty(parentSlot.StringKey))
-            __instance.name = $"Window {parentSlot.Occupant?.DisplayName}";
+            __instance.name = $"Window {parentSlot.Get()?.DisplayName}";
     }
 }
