@@ -4,9 +4,23 @@
 		<TargetFramework>net46</TargetFramework>
 		<AssemblyName>InventoryTweaks</AssemblyName>
 		<Description>A mod to add better inventory management to Stationeers</Description>
-		<Version>0.3.0</Version>
+		<Version>0.3.1</Version>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<DebugType>embedded</DebugType>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<DebugType>embedded</DebugType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Remove="Properties\**" />
+		<EmbeddedResource Remove="Properties\**" />
+		<None Remove="Properties\**" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
@@ -16,19 +30,18 @@
 		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Folder Include="Properties\" />
-	</ItemGroup>
-
 	<!-- Import Stationeers VS properties - paths etc. -->
 	<Import Project="$(SolutionDir)Stationeers.VS.props" />
 
 	<!-- Import Game/Unity DLL references -->
 	<Import Project="$(SolutionDir)Stationeers.VS.References.props" />
 
+	<Target Name="PreBuild" AfterTargets="PreBuildEvent">
+		<Exec Command="del /s /q $(SolutionDir)\build" />
+	</Target>
+
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Exec
-			Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
+		<Exec Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
 	</Target>
 
 	<Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">

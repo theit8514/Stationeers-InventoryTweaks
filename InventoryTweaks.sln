@@ -5,9 +5,7 @@ VisualStudioVersion = 17.4.33403.182
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A9C4AA07-83AC-4A64-A4A6-FC9BA854A75B}"
 	ProjectSection(SolutionItems) = preProject
-		LICENSE.md = LICENSE.md
 		NuGet.Config = NuGet.Config
-		README.md = README.md
 		Stationeers.VS.props = Stationeers.VS.props
 		Stationeers.VS.References.props = Stationeers.VS.References.props
 	EndProjectSection
