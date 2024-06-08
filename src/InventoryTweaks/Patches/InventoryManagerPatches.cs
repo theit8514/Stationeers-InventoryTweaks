@@ -1,8 +1,10 @@
 ﻿using Assets.Scripts.Inventory;
+using Assets.Scripts.Networking;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using HarmonyLib;
 using Objects.Items;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace InventoryTweaks.Patches;
@@ -96,7 +98,6 @@ internal class InventoryManagerPatches
 
     [HarmonyPrefix]
     [HarmonyPatch(typeof(ToolUse), nameof(ToolUse.Deconstruct))]
-    [System.Obsolete]
     // ReSharper disable once InconsistentNaming
     public static bool OnUseItem_Prefix(ToolUse __instance, ConstructionEventInstance eventInstance)
     {
@@ -170,6 +171,29 @@ internal class InventoryManagerPatches
             }
 
             _ = NewInventoryManager.MoveItem(stackable3);
+        }
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Constructor), nameof(Constructor.SpawnConstruct))]
+    public static void Create_Postfix(CreateStructureInstance instance)
+    {
+        IEnumerable<NewInventoryManager.SlotData> targetSlots = NewInventoryManager.GetSlotsOfType(instance.Prefab.GetPrefabHash());
+
+        foreach (NewInventoryManager.SlotData slotData in targetSlots)
+        {
+            Slot slot = slotData.Slot;
+            DynamicThing item = slot.Get();
+
+            if (item is Stackable stack)
+            {
+                _ = NewInventoryManager.FillHandSlot(InventoryManager.ActiveHandSlot, slot, stack);
+            }
+            else
+            {
+                OnServer.MoveToSlot(item, InventoryManager.ActiveHandSlot);
+                break;
+            }
         }
     }
 }

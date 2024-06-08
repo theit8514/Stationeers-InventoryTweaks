@@ -483,7 +483,31 @@ public static class NewInventoryManager
         return;
     }
 
-    private static IEnumerable<SlotData> GetTargetSlotsOrdered(DynamicThing thing)
+    public static IEnumerable<SlotData> GetSlotsOfType(int prefabHash)
+    {
+        Lookup<long, int, ILockedSlot> slotLookup = Data.ToLookup();
+        IEnumerable<Slot> humanInventorySlots = FindSlotsOfHuman(ExcludeHandSlots);
+        SlotData[] allHumanSlots = humanInventorySlots
+            .SelectMany(RecurseSlots)
+            .Select(slot => BuildSlotData(slot, slotLookup))
+            .ToArray();
+
+        SlotData[] sortedSlots = allHumanSlots
+            .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
+            .OrderByDescending(x => x.IsVisible) // Sort first by visible windows.
+            .ThenByDescending(x =>
+                x.IsOccupied && x.OccupantPrefabHash == prefabHash) // Then by occupied slots (for stacking)
+            .ThenByDescending(x => x.IsLocked && x.LockedToPrefabHash == prefabHash) // Then by locked slots
+            .ThenBy(x => x.IsOccupied == false) // Then by non-occupied slots
+            .ToArray();
+
+        Plugin.Log.LogInfo("Slots: " + string.Join("\r\n",
+            sortedSlots.Select(slot =>
+                $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
+        return sortedSlots;
+    }
+
+    public static IEnumerable<SlotData> GetTargetSlotsOrdered(DynamicThing thing)
     {
         int prefabHash = thing.GetPrefabHash();
         Lookup<long, int, ILockedSlot> slotLookup = Data.ToLookup();
@@ -492,6 +516,7 @@ public static class NewInventoryManager
             .SelectMany(RecurseSlots)
             .Select(slot => BuildSlotData(slot, slotLookup))
             .ToArray();
+
         SlotData[] sortedSlots = allHumanSlots
             .Where(x => x.IsOfSlotTypeOrNoneType(thing.SlotType)) // Only allow slots of this type or none type
             .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
@@ -502,6 +527,7 @@ public static class NewInventoryManager
             .ThenByDescending(x => x.IsOfSlotType(thing.SlotType)) // Then by slots of this type
             .ThenBy(x => x.IsOccupied == false) // Then by non-occupied slots
             .ToArray();
+
         Plugin.Log.LogInfo("Slots: " + string.Join("\r\n",
             sortedSlots.Select(slot =>
                 $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
@@ -514,7 +540,7 @@ public static class NewInventoryManager
         return new SlotData(slot, lockedSlotTuple);
     }
 
-    private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
+    public static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
     {
         Plugin.Log.LogDebug(
             $"Hand slot {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
@@ -636,7 +662,7 @@ public static class NewInventoryManager
         return null;
     }
 
-    private class SlotData
+    public class SlotData
     {
         private readonly ILockedSlot _lockedSlot;
 
