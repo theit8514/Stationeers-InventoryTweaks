@@ -174,12 +174,13 @@ public static class NewInventoryManager
     /// <param name="targetSlots"></param>
     private static void DoubleClickMoveToInventory(Slot selectedSlot, SlotData[] targetSlots)
     {
+        var thing = selectedSlot.Get();
         Slot targetSlot = null;
         // Find this Thing reference in the original slots dictionary.
-        if (OriginalSlots.TryGetValue(selectedSlot.Get().ReferenceId, out var originalSlot))
+        if (OriginalSlots.TryGetValue(thing.ReferenceId, out var originalSlot))
         {
             Plugin.Log.LogInfo(
-                $"Returning {selectedSlot.Get().DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
+                $"Returning {thing.DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
             // Checks to ensure that we can move this item back to this slot:
             if (originalSlot.Parent?.RootParentHuman == null)
                 Plugin.Log.LogWarning("Original slot was not attached to a human");
@@ -188,7 +189,7 @@ public static class NewInventoryManager
             else if (originalSlot.Get() != null)
                 Plugin.Log.LogWarning("Original slot is already filled");
             else if (!(originalSlot.Type == Slot.Class.None || // And the slot is type None
-                       originalSlot.Type == selectedSlot.Get().SlotType))
+                       originalSlot.Type == thing.SlotType))
                 Plugin.Log.LogWarning("Original slot is not a valid type for this item");
             else if (targetSlots.All(x => !ReferenceEquals(x.Slot, originalSlot)))
                 Plugin.Log.LogWarning("Original slot is not a valid target");
@@ -197,18 +198,18 @@ public static class NewInventoryManager
                 targetSlot = originalSlot;
 
             // Always clear the slot data so that we don't leave the reference around
-            OriginalSlots.Remove(selectedSlot.Get().ReferenceId);
+            OriginalSlots.Remove(thing.ReferenceId);
         }
 
         if (targetSlot == null)
         {
-            Plugin.Log.LogInfo($"Finding slot for {selectedSlot.Get().DisplayName}");
+            Plugin.Log.LogInfo($"Finding slot for {thing.DisplayName}");
             // Find slot that is not occupied.
             foreach (var slot in targetSlots.Where(x => x.IsOccupied == false))
             {
                 Plugin.Log.LogInfo(
                     $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
-                if (slot.IsLocked && slot.LockedToPrefabHash != selectedSlot.Get().PrefabHash)
+                if (slot.IsLocked && slot.LockedToPrefabHash != thing.PrefabHash)
                     continue;
 
                 targetSlot = slot.Slot;
@@ -216,10 +217,17 @@ public static class NewInventoryManager
             }
         }
 
+        if (targetSlot == null && targetSlots.All(x => x.IsOccupied || x.IsLocked))
+        {
+            ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked", aged: false);
+            UIAudioManager.Play(UIAudioManager.ActionFailHash);
+            return;
+        }
+
         // This code is largely unchanged from the base code, except for the ordering of operations.
         // If we didn't find the original slot, find a free slot of this type or a slot from the open inventory.
-        targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(selectedSlot.Get().SlotType, ExcludeHandSlots) ??
-                       FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(selectedSlot.Get().SlotType, true);
+        targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(thing.SlotType, ExcludeHandSlots) ??
+                       FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(thing.SlotType, true);
         if (targetSlot == null)
         {
             // If the slot was not found, find the next available slot in the main slots.
@@ -228,14 +236,14 @@ public static class NewInventoryManager
                 if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Get() == null)
                     continue;
 
-                var freeSlot = slot.Get().GetFreeSlot(selectedSlot.Get().SlotType);
+                var freeSlot = slot.Get().GetFreeSlot(thing.SlotType);
                 if (freeSlot == null)
                     continue;
 
                 targetSlot = freeSlot;
                 InventoryManager.Instance.StartCoroutine(
                     PerformHiddenSlotMoveToAnimation.GetValue<IEnumerator>(slot, selectedSlot,
-                        selectedSlot.Get()));
+                        thing));
                 break;
             }
         }
