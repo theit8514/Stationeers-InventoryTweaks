@@ -1,193 +1,188 @@
-﻿using Assets.Scripts.Serialization;
-using HarmonyLib;
-using InventoryTweaks.Data;
-using Steamworks;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection.Emit;
-using System.Text.RegularExpressions;
+using System.Threading;
+using Assets.Scripts.Serialization;
+using Cysharp.Threading.Tasks;
+using HarmonyLib;
+using InventoryTweaks.Data;
 
 namespace InventoryTweaks.Patches;
 
+/// <summary>
+/// Harmony patches that integrate InventoryTweaks save data with Stationeers' save pipeline.
+/// - Writes inventory data alongside the world save.
+/// - Loads inventory data when a world loads.
+/// - Cleans up associated inventory files when rolling old saves.
+/// </summary>
 public class SaveLockedSlotsPatches
 {
+    /// <summary>
+    /// Base file name used for InventoryTweaks data files.
+    /// </summary>
     public const string InventoryTweaksFileName = "InventoryTweaks.xml";
-    public const string InventoryTweaksBackupFormat = "InventoryTweaks({0}).xml";
 
-    [HarmonyPrefix]
-    [HarmonyPatch(typeof(XmlSaveLoad), "LoadWorld")]
-    public static void LoadWorld_Prefix()
+    /// <summary>
+    /// Postfix for <see cref="SaveHelper.Save(DirectoryInfo,string,bool,CancellationToken)"/>.
+    /// Serializes InventoryTweaks data to a temporary file, then after the base save completes,
+    /// copies it to a sidecar file next to the world save (e.g. <c>world.save.InventoryTweaks.xml</c>).
+    /// Any temporary file is removed afterwards. Modifies <paramref name="__result"/> to await the copy.
+    /// </summary>
+    /// <param name="saveDirectory">The directory where the world save is written.</param>
+    /// <param name="saveFileName">The world save file name.</param>
+    /// <param name="newSave">Whether this is a new save.</param>
+    /// <param name="cancellationToken">Token used to cancel asynchronous I/O.</param>
+    /// <param name="__result">The original <see cref="UniTask{TResult}"/> result, updated to include the copy step.</param>
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(SaveHelper), "Save", typeof(DirectoryInfo), typeof(string), typeof(bool),
+        typeof(CancellationToken))]
+    public static void Save_Postfix(
+        DirectoryInfo saveDirectory,
+        string saveFileName,
+        bool newSave,
+        CancellationToken cancellationToken,
+        // ReSharper disable once InconsistentNaming
+        ref UniTask<SaveResult> __result)
     {
-        // Load data from InventoryTweaks xml
-        var inventoryTweaks = GetInventoryTweaksFile(XmlSaveLoad.Instance.CurrentWorldSave.World);
-        if (!inventoryTweaks.Exists)
+        Plugin.Log.LogInfo("Starting save for inventory data");
+        var saveData = NewInventoryManager.Data.Save();
+        var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        var tempFile = GetInventoryTweaksFile(new FileInfo(tempFilePath));
+        if (!saveData.Serialize(tempFile.FullName))
+        {
+            Plugin.Log.LogError("Failed to serialize data to disk.");
             return;
+        }
 
-        Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaks.FullName}");
-        var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaks.FullName);
+        __result = __result.ContinueWith(async result =>
+        {
+            await UniTask.SwitchToThreadPool();
+            if (result.Success)
+            {
+                var saveFileInfo = new FileInfo(Path.Combine(saveDirectory.FullName, saveFileName));
+                var destFile = GetInventoryTweaksFile(saveFileInfo);
+                Plugin.Log.LogInfo($"Copying inventory data file {tempFile.FullName} to {destFile.FullName}");
+                try
+                {
+                    var copyStream = tempFile.OpenRead();
+                    try
+                    {
+                        using var destinationStream = File.Open(destFile.FullName, FileMode.Create, FileAccess.Write);
+                        await copyStream.CopyToAsync(destinationStream, 4096, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        return SaveResult.Fail(ex.Message);
+                    }
+
+                    copyStream.Close();
+                    tempFile.Delete();
+                    Plugin.Log.LogInfo("Inventory data file successfully written.");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Log.LogError("Failed to move inventory data file. Check log for more information");
+                    Plugin.Log.LogInfo(ex);
+                }
+            }
+
+            try
+            {
+                tempFile.Delete();
+            }
+            catch
+            {
+                // ignored
+            }
+
+            await UniTask.SwitchToMainThread();
+            return result;
+        });
+    }
+
+    /// <summary>
+    /// Prefix for <see cref="LoadHelper.LoadGameTask"/>. Attempts to locate and load the
+    /// InventoryTweaks sidecar file for the current world, then restores data into the mod state.
+    /// </summary>
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(LoadHelper), "LoadGameTask",  typeof(string), typeof(string))]
+    public static void LoadGameTask_Prefix(string path, string stationName)
+    {
+        var fileInfo = new FileInfo(path);
+        var inventoryTweaksFile = GetInventoryTweaksFile(fileInfo);
+        if (!inventoryTweaksFile.Exists)
+            return;
+        
+        Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaksFile.FullName}");
+        var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaksFile.FullName);
         NewInventoryManager.Data.Load(saveData);
     }
 
+    // [HarmonyPrefix]
+    // [HarmonyPatch(typeof(XmlSaveLoad), "LoadWorld")]
+    // public static void LoadWorld_Prefix()
+    // {
+    //     Plugin.Log.LogDebug($"LoadWorld called for ${XmlSaveLoad.Instance.CurrentWorldSave.World.FullName}");
+    //     // Load data from InventoryTweaks xml
+    //     var inventoryTweaks = GetInventoryTweaksFile(XmlSaveLoad.Instance.CurrentWorldSave.World);
+    //     if (!inventoryTweaks.Exists)
+    //         return;
+    //
+    //     Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaks.FullName}");
+    //     var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaks.FullName);
+    //     NewInventoryManager.Data.Load(saveData);
+    // }
+
+    /// <summary>
+    /// Prefix for <see cref="SaveHelper.RollSaveFiles"/>. Ensures the oldest InventoryTweaks sidecar
+    /// file is deleted together with the corresponding world save when rolling saves.
+    /// Returns <c>false</c> to skip the original method (custom handling only).
+    /// </summary>
+    /// <param name="directoryInfo">Directory containing world save files.</param>
+    /// <param name="maxCount">Maximum number of save files to keep.</param>
+    /// <returns><c>false</c> to prevent execution of the original method.</returns>
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(XmlSaveLoad), "RenameTemporarySave")]
-    public static void RenameTemporarySave_Prefix(string worldDirectory)
+    [HarmonyPatch(typeof(SaveHelper), "RollSaveFiles")]
+    public static bool RollSaveFiles_Prefix(DirectoryInfo directoryInfo, int maxCount)
     {
-        // Write our data to temp_InventoryTweaks.xml
-        var saveData = NewInventoryManager.Data.Save();
-        var path = worldDirectory + "/temp_" + InventoryTweaksFileName;
-        if (!saveData.Serialize(path))
-            Plugin.Log.LogError("Failed to serialize data to disk.");
-    }
+        var saveFiles = directoryInfo.GetFiles().Where(x => x.Extension == ".save").ToArray();
+        if (saveFiles.Length <= maxCount)
+            return false;
 
-    [HarmonyPostfix]
-    [HarmonyPatch(typeof(XmlSaveLoad), "RenameTemporarySave")]
-    public static void RenameTemporarySave_Postfix(string worldDirectory)
-    {
-        // Rename temp_InventoryTweaks.xml to InventoryTweaks.xml
-        if (File.Exists(worldDirectory + "/" + InventoryTweaksFileName))
-            File.Delete(worldDirectory + "/" + InventoryTweaksFileName);
-        File.Move(worldDirectory + "/temp_" + InventoryTweaksFileName, worldDirectory + "/" + InventoryTweaksFileName);
-    }
-
-    [HarmonyTranspiler]
-    [HarmonyPatch(typeof(XmlSaveLoad), "BackupWorldFiles")]
-    public static IEnumerable<CodeInstruction> BackupWorldFiles_Transpiler(IEnumerable<CodeInstruction> instructions)
-    {
-        //Plugin.Log.LogDebug(string.Join(Environment.NewLine, instructions));
-        var getBackupWorldIndexMethod = AccessTools.Method(typeof(XmlSaveLoad), "get_BackupWorldIndex");
-        Expression<Action<XmlSaveLoad, string, bool>> expression = (a, b, c) => BackupWorldFiles(a, b, c);
-        var found = false;
-        foreach (var instruction in instructions)
+        List<(FileInfo file, DateTime dateTime)> valueTupleList = new List<(FileInfo file, DateTime dateTime)>();
+        foreach (FileInfo file in saveFiles)
         {
-            if (!found && instruction.Calls(getBackupWorldIndexMethod))
-            {
-                found = true;
-                yield return new CodeInstruction(OpCodes.Ldarg_0);
-                yield return new CodeInstruction(OpCodes.Ldarg_1);
-                yield return new CodeInstruction(OpCodes.Ldarg_2);
-                yield return CodeInstruction.Call(expression);
-            }
-
-            yield return instruction;
+            if (DateTime.TryParseExact(file.Name.Substring(0, SaveLoadConstants.DateTimeFormat.Length),
+                    SaveLoadConstants.DateTimeFormat, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeLocal, out var result))
+                valueTupleList.Add((file, result));
         }
-    }
 
-    [HarmonyTranspiler]
-    [HarmonyPatch(typeof(StationSaveContainer), nameof(StationSaveContainer.SendToSteamCloud))]
-    public static IEnumerable<CodeInstruction> SendToSteamCloud_Transpiler(IEnumerable<CodeInstruction> instructions)
-    {
-        var list = new List<CodeInstruction>(instructions);
-        var index = list.FindLastIndex(x => x.opcode == OpCodes.Ret);
-        list.InsertRange(index, new[]
+        valueTupleList.Sort((a, b) => a.dateTime.CompareTo(b.dateTime));
+        try
         {
-            new(OpCodes.Ldarg_0),
-            CodeInstruction.Call((StationSaveContainer container) => SendToSteamCloud(container))
-        });
-        return list.AsEnumerable();
-    }
-
-    [HarmonyTranspiler]
-    [HarmonyPatch(typeof(StationSaveContainer), nameof(StationSaveContainer.RemoveFromSteamCloud))]
-    public static IEnumerable<CodeInstruction> RemoveFromSteamCloud_Transpiler(
-        IEnumerable<CodeInstruction> instructions)
-    {
-        var list = new List<CodeInstruction>(instructions);
-        var index = list.FindLastIndex(x => x.opcode == OpCodes.Ret);
-        list.InsertRange(index, new[]
-        {
-            new(OpCodes.Ldarg_0),
-            CodeInstruction.Call((StationSaveContainer container) => RemoveFromSteamCloud(container))
-        });
-        return list.AsEnumerable();
-    }
-
-    [HarmonyTranspiler]
-    [HarmonyPatch(typeof(StationSaveContainer), nameof(StationSaveContainer.DeleteFromSteamCloud))]
-    public static IEnumerable<CodeInstruction> DeleteFromSteamCloud_Transpiler(
-        IEnumerable<CodeInstruction> instructions)
-    {
-        var list = new List<CodeInstruction>(instructions);
-        var index = list.FindLastIndex(x => x.opcode == OpCodes.Ret);
-        list.InsertRange(index, new[]
-        {
-            new(OpCodes.Ldarg_0),
-            CodeInstruction.Call((StationSaveContainer container) => DeleteFromSteamCloud(container))
-        });
-        return list.AsEnumerable();
-    }
-
-    [HarmonyTranspiler]
-    [HarmonyPatch(typeof(StationSaveContainer), nameof(StationSaveContainer.DeleteFiles))]
-    public static IEnumerable<CodeInstruction> DeleteFiles_Transpiler(IEnumerable<CodeInstruction> instructions)
-    {
-        var list = new List<CodeInstruction>(instructions);
-        var index = list.FindLastIndex(x => x.opcode == OpCodes.Ret);
-        list.InsertRange(index, new[]
-        {
-            new(OpCodes.Ldarg_0),
-            CodeInstruction.Call((StationSaveContainer container) => DeleteFiles(container))
-        });
-        return list.AsEnumerable();
-    }
-
-    private static void BackupWorldFiles(XmlSaveLoad instance, string worldDirectory, bool autoSave)
-    {
-        // Backup InventoryTweaks.xml
-        var backupEachFiles = Traverse.Create(instance)
-            .Method("BackupEachFiles", new[] { typeof(string), typeof(string), typeof(bool) });
-        backupEachFiles.GetValue(worldDirectory, InventoryTweaksFileName, autoSave);
-    }
-
-    private static void SendToSteamCloud(StationSaveContainer container)
-    {
-        var inventoryTweaks = GetInventoryTweaksFile(container.World);
-        if (inventoryTweaks != null)
-        {
-            SteamRemoteStorage.FileWrite(container.GetCloudFileName(inventoryTweaks),
-                File.ReadAllBytes(inventoryTweaks.FullName));
+            var inventoryTweaksFile = GetInventoryTweaksFile(valueTupleList[0].file);
+            if (inventoryTweaksFile.Exists)
+                inventoryTweaksFile.Delete();
         }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogWarning("Failed to delete inventory tweaks file: " + ex.Message);
+        }
+
+        valueTupleList[0].Item1.Delete();
+        return false;
     }
 
-    private static void RemoveFromSteamCloud(StationSaveContainer container)
-    {
-        var inventoryTweaks = GetInventoryTweaksFile(container.World);
-        if (inventoryTweaks != null)
-            SteamRemoteStorage.FileForget(container.GetCloudFileName(inventoryTweaks));
-    }
-
-    private static void DeleteFromSteamCloud(StationSaveContainer container)
-    {
-        var inventoryTweaks = GetInventoryTweaksFile(container.World);
-        if (inventoryTweaks != null)
-            SteamRemoteStorage.FileDelete(container.GetCloudFileName(inventoryTweaks));
-    }
-
-    private static void DeleteFiles(StationSaveContainer container)
-    {
-        var inventoryTweaks = GetInventoryTweaksFile(container.World);
-        if (inventoryTweaks?.Exists ?? false)
-            inventoryTweaks.Delete();
-    }
-
+    /// <summary>
+    /// Computes the InventoryTweaks sidecar file path for a given world save file.
+    /// </summary>
+    /// <param name="world">The world save file (e.g. <c>*.save</c>).</param>
+    /// <returns>A <see cref="FileInfo"/> pointing to the sidecar xml file.</returns>
     private static FileInfo GetInventoryTweaksFile(FileInfo world)
     {
-        if (world.Name == "world.xml")
-        {
-            // Main world file
-            return new FileInfo(world.DirectoryName + "/" + InventoryTweaksFileName);
-        }
-
-        var match = Regex.Match(world.Name, @"\((\d+)\)");
-        if (match.Success)
-        {
-            var index = match.Groups[1].Value;
-            return new FileInfo(world.DirectoryName + "/" + string.Format(InventoryTweaksBackupFormat, index));
-        }
-
-        Plugin.Log.LogWarning($"Could not determine InventoryTweaks save file from world file {world.Name}");
-        return null;
+        return new FileInfo(world.FullName + "." + InventoryTweaksFileName);
     }
 }
