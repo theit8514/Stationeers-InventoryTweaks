@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
@@ -5,9 +8,6 @@ using Assets.Scripts.Serialization;
 using Assets.Scripts.UI;
 using HarmonyLib;
 using InventoryTweaks.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +15,9 @@ namespace InventoryTweaks.Patches;
 
 internal class RewriteOpenSlotsInSavePatches
 {
+    private static readonly int ToolHash = Animator.StringToHash("Tool");
+    private static readonly int NoneHash = Animator.StringToHash("None");
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(InventoryWindowManager), nameof(InventoryWindowManager.LoadUserInterfaceData))]
     public static void LoadUserInterfaceData_Postfix(UserInterfaceSaveData userInterfaceSaveData)
@@ -112,18 +115,23 @@ internal class RewriteOpenSlotsInSavePatches
 
     private static void ReplaceUserInterfaceOpenSlots(UserInterfaceSaveData saveData)
     {
+        LogSlots("Old data:", saveData.OpenSlots);
         saveData.OpenSlots ??= new List<WindowSaveData>();
         saveData.OpenSlots.Clear();
         foreach (var window in InventoryWindowManager.Instance.Windows.Where(window => window.GameObject != null))
         {
             var stringHash = window.ParentSlot.StringHash;
-            // For non-standard slots (e.g. an open tablet) the StringHash will be zero.
-            // This is not useful for re-opening that same window, so rewrite it with the parent reference id.
-            if ((stringHash == 0 || stringHash == Animator.StringToHash("Tool")) && window.Parent != null)
+            Plugin.Log.LogDebug($"String Hash: {stringHash} IsTool: {stringHash == ToolHash} IsNone: {stringHash == NoneHash}");
+            // For any non-standard slots (i.e. slots inside a tool belt or jetpack inventory)
+            // the stringHash will not be enough to reopen the window. If we have a parent and one of these string hashes
+            // store the reference id instead.
+            if ((stringHash == 0 || stringHash == ToolHash || stringHash == NoneHash) && window.Parent != null)
             {
                 // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
                 // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
                 // in the world to overflow this value.
+                // There is also a very tiny chance of overlapping an actual StringHash value, but there's not
+                // a lot we can do about that.
                 try
                 {
                     stringHash = Convert.ToInt32(window.Parent.ReferenceId);
@@ -138,6 +146,7 @@ internal class RewriteOpenSlotsInSavePatches
 
             // Note, that if we were smarter, we could add a ReferenceId to this WindowSaveData and serialize it.
             // That would require us override the xml serialization, which does not seem advisable at this point.
+            // TODO: Consider moving this data into the InventoryTweaks XML file, which is stored with the save file.
             var openSlot = new WindowSaveData // ExtendedWindowSaveData
             {
                 //ReferenceId = window.Parent?.ReferenceId ?? -1,
@@ -147,10 +156,18 @@ internal class RewriteOpenSlotsInSavePatches
                 IsUndocked = window.IsUndocked,
                 Position = window.RectTransform.position
             };
-            Plugin.Log.LogDebug(
-                $"Open slot: {openSlot.StringHash} {openSlot.SlotId} {openSlot.Position} {openSlot.IsOpen} {openSlot.IsUndocked}");
             saveData.OpenSlots.Add(openSlot);
         }
+
+        LogSlots("New data:", saveData.OpenSlots);
+    }
+
+    private static void LogSlots(string message, IEnumerable<WindowSaveData> slots)
+    {
+        Plugin.Log.LogDebug($"{message}\r\n" + string.Join("\r\n",
+            slots.OrderBy(x => x.StringHash)
+                .Select(openSlot =>
+                    $"Open slot: {openSlot.StringHash} {openSlot.SlotId} {openSlot.Position} {openSlot.IsOpen} {openSlot.IsUndocked}")));
     }
 
     //public class ExtendedWindowSaveData : WindowSaveData
