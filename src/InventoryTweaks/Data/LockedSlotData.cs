@@ -5,7 +5,7 @@ namespace InventoryTweaks.Data;
 public class LockedSlotData
 {
     [XmlElement]
-    public int SlotId { get; set; }
+    public int SlotIndex { get; set; }
 
     [XmlElement]
     public string PrefabName { get; set; }

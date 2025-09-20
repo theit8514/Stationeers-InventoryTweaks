@@ -37,15 +37,16 @@ public static class NewInventoryManager
     }
 
     /// <summary>
-    ///     Replacement function for DoubleClickMoveToHand
+    ///     Replacement function for SmartStow
     /// </summary>
     /// <param name="selectedSlot"></param>
-    public static void DoubleClickMove(Slot selectedSlot)
+    public static void SmartStow(Slot selectedSlot)
     {
         if (selectedSlot == null || selectedSlot.Get() == null)
             return;
         try
         {
+            Plugin.Log.LogDebug($"Handling SmartStow request for {selectedSlot}");
             var targetSlots = GetTargetSlotsOrdered(selectedSlot.Get())
                 .ToArray();
 
@@ -75,7 +76,7 @@ public static class NewInventoryManager
         catch (Exception ex)
         {
             Plugin.Log.LogError(
-                $"Exception encountered on DoubleClickMoveToHand: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+                $"Exception encountered on SmartStow: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
         }
     }
 
@@ -275,7 +276,7 @@ public static class NewInventoryManager
 
     private static SlotData BuildSlotData(Slot slot, Lookup<long, int, ILockedSlot> lookup)
     {
-        var lockedSlotTuple = lookup[slot.Parent.ReferenceId, slot.SlotId].FirstOrDefault();
+        var lockedSlotTuple = lookup[slot.Parent.ReferenceId, slot.SlotIndex].FirstOrDefault();
         return new SlotData(slot, lockedSlotTuple);
     }
 
@@ -330,22 +331,22 @@ public static class NewInventoryManager
             return;
 
         var parentReferenceId = currentSlot.Slot.Parent.ReferenceId;
-        var slotId = currentSlot.Slot.SlotId;
+        var slotIndex = currentSlot.Slot.SlotIndex;
         if (currentSlot.Slot.Get() == null)
         {
-            Data.UnlockSlot(parentReferenceId, slotId);
+            Data.UnlockSlot(parentReferenceId, slotIndex);
             ConsoleWindow.Print("Slot is now unlocked and may accept any item.", aged: false);
         }
         else
         {
-            Data.LockSlot(parentReferenceId, slotId, currentSlot.Slot.Get());
+            Data.LockSlot(parentReferenceId, slotIndex, currentSlot.Slot.Get());
             ConsoleWindow.Print($"Slot is now locked to '{currentSlot.Slot.Get().DisplayName}'.", aged: false);
         }
     }
 
     public static bool? AllowMove(DynamicThing thing, Slot destinationSlot)
     {
-        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotId, out var destinationLock))
+        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotIndex, out var destinationLock))
         {
             if (thing.GetPrefabHash() != destinationLock.PrefabHash)
                 return false;
@@ -356,13 +357,13 @@ public static class NewInventoryManager
 
     public static bool? AllowSwap(Slot sourceSlot, Slot destinationSlot)
     {
-        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotId, out var sourceLock))
+        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
         {
             if (destinationSlot.Get().GetPrefabHash() != sourceLock.PrefabHash)
                 return false;
         }
 
-        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotId, out var destinationLock))
+        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotIndex, out var destinationLock))
         {
             if (sourceSlot.Get().GetPrefabHash() != destinationLock.PrefabHash)
                 return false;
@@ -373,7 +374,7 @@ public static class NewInventoryManager
 
     public static bool? AllowSwap(Slot sourceSlot, DynamicThing destination)
     {
-        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotId, out var sourceLock))
+        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
         {
             if (destination.GetPrefabHash() != sourceLock.PrefabHash)
                 return false;

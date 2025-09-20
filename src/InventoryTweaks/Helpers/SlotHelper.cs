@@ -14,6 +14,6 @@ internal class SlotHelper
     public static string GetSlotDisplayName(Slot slot)
     {
         var displayName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
-        return $"{displayName} {slot.SlotId}";
+        return $"{displayName} {slot.SlotIndex}";
     }
 }

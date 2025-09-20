@@ -7,17 +7,17 @@ namespace InventoryTweaks.Patches;
 internal class InventoryManagerPatches
 {
     /// <summary>
-    ///     Completely replace the DoubleClickMoveToHand function.
+    ///     Completely replace the SmartStow function.
     /// </summary>
     /// <param name="selectedSlot"></param>
     /// <returns><see langword="false" /> to stop base game execution</returns>
     [HarmonyPrefix]
     [HarmonyPatch(typeof(InventoryManager))]
-    [HarmonyPatch(nameof(InventoryManager.DoubleClickMoveToHand))]
+    [HarmonyPatch(nameof(InventoryManager.SmartStow))]
     [HarmonyPriority(2000)]
-    public static bool DoubleClickMoveToHand_Prefix(Slot selectedSlot)
+    public static bool SmartStow_Prefix(Slot selectedSlot)
     {
-        NewInventoryManager.DoubleClickMove(selectedSlot);
+        NewInventoryManager.SmartStow(selectedSlot);
         return false;
     }
 

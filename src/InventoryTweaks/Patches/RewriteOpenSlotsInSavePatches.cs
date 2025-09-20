@@ -141,7 +141,7 @@ internal class RewriteOpenSlotsInSavePatches
             var openSlot = new WindowSaveData // ExtendedWindowSaveData
             {
                 //ReferenceId = window.Parent?.ReferenceId ?? -1,
-                SlotId = window.ParentSlot.SlotId,
+                SlotId = window.ParentSlot.SlotIndex,
                 StringHash = stringHash,
                 IsOpen = window.IsVisible,
                 IsUndocked = window.IsUndocked,

@@ -17,8 +17,8 @@ public class InventoryTweaksData
         {
             foreach (var slot in container.LockedSlots)
             {
-                _lockedSlots.Add(new Tuple<long, int>(container.ContainerId, slot.SlotId),
-                    new LockedSlotTuple(container.ContainerId, slot.SlotId, slot.PrefabName,
+                _lockedSlots.Add(new Tuple<long, int>(container.ContainerId, slot.SlotIndex),
+                    new LockedSlotTuple(container.ContainerId, slot.SlotIndex, slot.PrefabName,
                         Prefab.Find(slot.PrefabName)?.DisplayName));
             }
         }
@@ -34,7 +34,7 @@ public class InventoryTweaksData
                 ContainerId = kvp.Key,
                 LockedSlots = kvp.Select(x => new LockedSlotData
                 {
-                    SlotId = x.Key.Item2,
+                    SlotIndex = x.Key.Item2,
                     PrefabName = x.Value.PrefabName
                 }).ToList()
             });
@@ -43,22 +43,22 @@ public class InventoryTweaksData
         return saveData;
     }
 
-    public void UnlockSlot(long containerId, int slotId)
+    public void UnlockSlot(long containerId, int slotIndex)
     {
-        _lockedSlots.Remove(new Tuple<long, int>(containerId, slotId));
+        _lockedSlots.Remove(new Tuple<long, int>(containerId, slotIndex));
     }
 
-    public void LockSlot(long containerId, int slotId, Thing thing)
+    public void LockSlot(long containerId, int slotIndex, Thing thing)
     {
-        _lockedSlots[new Tuple<long, int>(containerId, slotId)] =
-            new LockedSlotTuple(containerId, slotId, thing.GetPrefabName(), thing.DisplayName);
+        _lockedSlots[new Tuple<long, int>(containerId, slotIndex)] =
+            new LockedSlotTuple(containerId, slotIndex, thing.GetPrefabName(), thing.DisplayName);
     }
 
     public bool CanPlaceInSlot(DynamicThing thing, Slot slot)
     {
         if (slot.Get() != null || slot.Parent == null)
             return false;
-        if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotId), out var lockedSlot))
+        if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotIndex), out var lockedSlot))
             return true;
         return lockedSlot.PrefabHash == thing.GetPrefabHash();
     }
@@ -66,22 +66,22 @@ public class InventoryTweaksData
     public Lookup<long, int, ILockedSlot> ToLookup()
     {
         return new Lookup<long, int, ILockedSlot>(_lockedSlots.Values,
-            data => Tuple<long, int>.Create(data.ContainerId, data.SlotId));
+            data => Tuple<long, int>.Create(data.ContainerId, data.SlotIndex));
     }
 
-    public bool TryGetLock(long containerId, int slotId, out ILockedSlot lockedSlot)
+    public bool TryGetLock(long containerId, int slotIndex, out ILockedSlot lockedSlot)
     {
-        return _lockedSlots.TryGetValue(new Tuple<long, int>(containerId, slotId), out lockedSlot);
+        return _lockedSlots.TryGetValue(new Tuple<long, int>(containerId, slotIndex), out lockedSlot);
     }
 
     private sealed class LockedSlotTuple : ILockedSlot
     {
-        public LockedSlotTuple(long containerId, int slotId, string prefabName, string displayName)
+        public LockedSlotTuple(long containerId, int slotIndex, string prefabName, string displayName)
         {
             ContainerId = containerId;
             PrefabName = prefabName;
             PrefabHash = Animator.StringToHash(prefabName);
-            SlotId = slotId;
+            SlotIndex = slotIndex;
             DisplayName = displayName;
         }
 
@@ -89,7 +89,7 @@ public class InventoryTweaksData
         public long ContainerId { get; }
 
         /// <inheritdoc />
-        public int SlotId { get; }
+        public int SlotIndex { get; }
 
         /// <inheritdoc />
         public int PrefabHash { get; }
