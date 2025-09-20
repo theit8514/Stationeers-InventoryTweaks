@@ -26,9 +26,14 @@
 	<!-- Import Game/Unity DLL references -->
 	<Import Project="$(SolutionDir)Stationeers.VS.References.props" />
 
-	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsWindows())">
 		<Exec
 			Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
+	</Target>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsLinux())">
+		<Exec
+			Command="cp &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)/BepInEx/plugins/&quot;" />
 	</Target>
 
 	<Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
