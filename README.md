@@ -5,11 +5,11 @@
 This mod is designed to improve the inventory management aspect of Stationeers.
 
 Current features include:
-* Combine items into existing stacks when moving via double click
+* Combine items into existing stacks when moving via Smart Stow (default G)
 * Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
 * Fixes weird gaps between inventory windows
-* Fixes tracking of original slots so that items return to their proper place via double click.
-* Ability to lock slots to an item type (e.g. Cable Coil)
+* Fixes tracking of original slots so that items return to their proper place via Smart Stow.
+* Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.)
 
 # Installation
 
@@ -38,7 +38,7 @@ To unlock a slot, remove the item and middle click the empty slolt to remove the
 This mod creates a configuration file which can enable certain options.
 The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and will be created on first load of the mod.
 
-* EnableRewriteOpenSlots (default: true): This will enable or disable the Rewrite Open Slots feature.
+* EnableRewriteOpenSlots (default: false): This will enable or disable the Rewrite Open Slots feature.
   If enabled, it will rewrite your save data for Open Slots so that tablets, tools, etc will remain open when loading your save.
   
   This option rewrites the StringHash (an integer value) with the ReferenceId (a long value) of the slot that is open.
@@ -53,6 +53,7 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
 
 Thoughts on additional features:
 * Add refill hand from inventory on construction/placement and sort items to inventory on deconstruction.
+* Implement StationeersLaunchPad support for mod configuration.
 
 # Contributions
 
