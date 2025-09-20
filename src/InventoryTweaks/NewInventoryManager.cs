@@ -268,7 +268,7 @@ public static class NewInventoryManager
             .ThenByDescending(x => x.IsOfSlotType(thing.SlotType)) // Then by slots of this type
             .ThenBy(x => x.IsOccupied == false) // Then by non-occupied slots
             .ToArray();
-        Plugin.Log.LogInfo("Slots: " + string.Join("\r\n",
+        Plugin.Log.LogInfo("Slots: \r\n" + string.Join("\r\n",
             sortedSlots.Select(slot =>
                 $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
         return sortedSlots;
