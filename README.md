@@ -68,7 +68,6 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
 
 Thoughts on additional features:
 * Add refill hand from inventory on construction/placement and sort items to inventory on deconstruction.
-* Implement StationeersLaunchPad support for mod configuration.
 
 # Contributions
 
