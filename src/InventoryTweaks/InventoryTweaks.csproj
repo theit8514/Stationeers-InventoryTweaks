@@ -46,6 +46,8 @@
 		<MakeDir Directories="$(SolutionDir)\build" />
         <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
         <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
+        <Copy SourceFiles="$(SolutionDir)\README.md" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
+        <Copy SourceFiles="$(SolutionDir)\LICENSE.md" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
 		<ZipDirectory SourceDirectory="$(SolutionDir)\mod" DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
 	</Target>
 </Project>

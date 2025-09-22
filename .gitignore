@@ -348,4 +348,12 @@ healthchecksdb
 # Backup folder for Package Reference Convert tool in Visual Studio 2017
 MigrationBackup/
 
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
 build/
+mod/InventoryTweaks/*.dll
+mod/InventoryTweaks/README.md
+mod/InventoryTweaks/LICENSE.md
