@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Name>Inventory Tweaks</Name>
+  <Author>theit8514</Author>
+  <Version>0.4.1</Version>
+  <Description>[h1]Inventory Tweaks[/h1]
+This mod is designed to improve the inventory management aspect of Stationeers.
+[h2]Features[/h2]
+* Combine items into existing stacks when moving via Smart Stow (default G)
+* Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
+* Fixes weird gaps between inventory windows
+* Fixes tracking of original slots so that items return to their proper place via Smart Stow.
+* Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.)
+[h2]License[/h2]
+This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
+  </Description>
+  <ChangeLog xsi:nil="true" />
+  <WorkshopHandle>3573053238</WorkshopHandle>
+  <Tags />
+  <Dependencies />
+  <LoadBefore />
+  <LoadAfter />
+  <InGameDescription xsi:nil="true" />
+</ModMetadata>

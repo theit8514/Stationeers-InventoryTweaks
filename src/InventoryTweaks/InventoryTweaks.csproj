@@ -4,7 +4,7 @@
 		<TargetFramework>net47</TargetFramework>
 		<AssemblyName>InventoryTweaks</AssemblyName>
 		<Description>A mod to add better inventory management to Stationeers</Description>
-		<Version>0.3.0</Version>
+		<Version>0.4.1</Version>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 
@@ -27,17 +27,25 @@
 	<Import Project="$(SolutionDir)Stationeers.VS.References.props" />
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsWindows())">
+        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir /P &quot;$(ModDirectory)\InventoryTweaks&quot;" />
+        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y" />
+        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(SolutionDir)\mod\InventoryTweaks\*&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /E /F /Y" />
 		<Exec
 			Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y " />
 	</Target>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsLinux())">
-		<Exec
-			Command="cp &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)/BepInEx/plugins/&quot;" />
+        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir -p '$(ModDirectory)/InventoryTweaks'" />
+        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).dll' '$(ModDirectory)/InventoryTweaks'" />
+        <Exec Condition="'$(ModDirectory)' != ''" Command="cp -r '$(SolutionDir)mod/InventoryTweaks/'* '$(ModDirectory)/InventoryTweaks'" />
+		<Exec Condition="'$(ModDirectory)' == ''"
+              Command="cp '$(TargetDir)$(TargetName).dll' '$(StationeersDirectory)/BepInEx/plugins/'" />
 	</Target>
 
 	<Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
 		<MakeDir Directories="$(SolutionDir)\build" />
-		<ZipDirectory SourceDirectory="$(TargetDir)" DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
+        <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks" />
+		<ZipDirectory SourceDirectory="$(SolutionDir)\mod" DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip" />
 	</Target>
 </Project>

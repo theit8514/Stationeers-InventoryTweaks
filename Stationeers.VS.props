@@ -1,6 +1,8 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
 	  <!-- Change this to the path to your Stationeers directory -->
-	  <StationeersDirectory>X:\Path\To\Steam\steamapps\common\Stationeers\</StationeersDirectory>
+	  <StationeersDirectory>$(HOME)/.steam/debian-installation/steamapps/common/Stationeers</StationeersDirectory>
+      <!-- Change this to the path to your 'mods' folder in Documents -->
+      <ModDirectory>$(HOME)/.steam/debian-installation/steamapps/compatdata/544550/pfx/drive_c/users/steamuser/Documents/My Games/Stationeers/mods</ModDirectory>
   </PropertyGroup>
 </Project>
