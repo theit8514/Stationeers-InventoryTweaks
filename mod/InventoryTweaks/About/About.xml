@@ -5,6 +5,10 @@
   <Version>0.4.1</Version>
   <Description>[h1]Inventory Tweaks[/h1]
 This mod is designed to improve the inventory management aspect of Stationeers.
+[h2]Requirements[/h2]
+WARNING: This is a StationeersLaunchPad Plugin Mod. It requires BepInEx to be installed with the StationeersLaunchPad plugin.
+See: https://github.com/StationeersLaunchPad/StationeersLaunchPad
+Detailed installation instructions available here: https://github.com/theit8514/Stationeers-InventoryTweaks#installation-steam-workshop
 [h2]Features[/h2]
 * Combine items into existing stacks when moving via Smart Stow (default G)
 * Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
