@@ -28,18 +28,24 @@
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsWindows())">
         <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir /P &quot;$(ModDirectory)\InventoryTweaks&quot;"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y"/>
         <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(SolutionDir)\mod\InventoryTweaks\*&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /E /F /Y"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y"/>
         <Exec
                 Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
+        <Exec
+                Command="xcopy &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
     </Target>
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsLinux())">
         <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir -p '$(ModDirectory)/InventoryTweaks'"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).dll' '$(ModDirectory)/InventoryTweaks'"/>
         <Exec Condition="'$(ModDirectory)' != ''" Command="cp -r '$(SolutionDir)mod/InventoryTweaks/'* '$(ModDirectory)/InventoryTweaks'"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).dll' '$(ModDirectory)/InventoryTweaks'"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).pdb' '$(ModDirectory)/InventoryTweaks'"/>
         <Exec Condition="'$(ModDirectory)' == ''"
               Command="cp '$(TargetDir)$(TargetName).dll' '$(StationeersDirectory)/BepInEx/plugins/'"/>
+        <Exec Condition="'$(ModDirectory)' == ''"
+              Command="cp '$(TargetDir)$(TargetName).pdb' '$(StationeersDirectory)/BepInEx/plugins/'"/>
     </Target>
 
     <Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
