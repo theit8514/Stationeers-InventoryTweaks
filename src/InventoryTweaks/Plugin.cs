@@ -13,6 +13,8 @@ namespace InventoryTweaks;
 [PublicAPI]
 public class Plugin : BaseUnityPlugin
 {
+    private const string HarmonyID = "InventoryTweaksPatches";
+    
     internal static ManualLogSource Log { get; private set; }
 
 #pragma warning disable IDE0051
@@ -20,6 +22,12 @@ public class Plugin : BaseUnityPlugin
 #pragma warning restore IDE0051
     {
         Log = Logger;
+        if (Harmony.HasAnyPatches(HarmonyID))
+        {
+            Log.LogWarning($"Plugin {PluginInfo.PLUGIN_GUID} is already loaded!");
+            return;
+        }
+
         ConfigHelper.LoadConfig(Config);
         Log.LogMessage($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
         ModKeyManager.RegisterKeyPressHandlers += (_, arguments) =>
@@ -30,10 +38,8 @@ public class Plugin : BaseUnityPlugin
             arguments.AddKey(new LockSlotKeyPressHandler(), controlsGroup);
         };
 
-        var modKeyManager = new Harmony("ModKeyManager");
-        modKeyManager.PatchAll(typeof(ModKeyManager));
-
-        var instance = new Harmony("InventoryTweaksPatches");
+        var instance = new Harmony(HarmonyID);
+        instance.PatchAll(typeof(ModKeyManager));
         instance.PatchAll(typeof(KeyBindHelpers));
         instance.PatchAll(typeof(InventoryManagerPatches));
         instance.PatchAll(typeof(InventoryWindowManagerPatches));
