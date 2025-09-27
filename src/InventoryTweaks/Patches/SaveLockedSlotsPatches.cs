@@ -12,29 +12,29 @@ using InventoryTweaks.Data;
 namespace InventoryTweaks.Patches;
 
 /// <summary>
-/// Harmony patches that integrate InventoryTweaks save data with Stationeers' save pipeline.
-/// - Writes inventory data alongside the world save.
-/// - Loads inventory data when a world loads.
-/// - Cleans up associated inventory files when rolling old saves.
+///     Harmony patches that integrate InventoryTweaks save data with Stationeers' save pipeline.
+///     - Writes inventory data alongside the world save.
+///     - Loads inventory data when a world loads.
+///     - Cleans up associated inventory files when rolling old saves.
 /// </summary>
 public class SaveLockedSlotsPatches
 {
     /// <summary>
-    /// Base file name used for InventoryTweaks data files.
+    ///     Base file name used for InventoryTweaks data files.
     /// </summary>
     public const string InventoryTweaksFileName = "InventoryTweaks.xml";
 
     /// <summary>
-    /// Postfix for <see cref="SaveHelper.Save(DirectoryInfo,string,bool,CancellationToken)"/>.
-    /// Serializes InventoryTweaks data to a temporary file, then after the base save completes,
-    /// copies it to a sidecar file next to the world save (e.g. <c>world.save.InventoryTweaks.xml</c>).
-    /// Any temporary file is removed afterwards. Modifies <paramref name="__result"/> to await the copy.
+    ///     Postfix for <see cref="SaveHelper.Save(DirectoryInfo,string,bool,CancellationToken)" />.
+    ///     Serializes InventoryTweaks data to a temporary file, then after the base save completes,
+    ///     copies it to a sidecar file next to the world save (e.g. <c>world.save.InventoryTweaks.xml</c>).
+    ///     Any temporary file is removed afterwards. Modifies <paramref name="__result" /> to await the copy.
     /// </summary>
     /// <param name="saveDirectory">The directory where the world save is written.</param>
     /// <param name="saveFileName">The world save file name.</param>
     /// <param name="newSave">Whether this is a new save.</param>
     /// <param name="cancellationToken">Token used to cancel asynchronous I/O.</param>
-    /// <param name="__result">The original <see cref="UniTask{TResult}"/> result, updated to include the copy step.</param>
+    /// <param name="__result">The original <see cref="UniTask{TResult}" /> result, updated to include the copy step.</param>
     [HarmonyPostfix]
     [HarmonyPatch(typeof(SaveHelper), "Save", typeof(DirectoryInfo), typeof(string), typeof(bool),
         typeof(CancellationToken))]
@@ -103,18 +103,18 @@ public class SaveLockedSlotsPatches
     }
 
     /// <summary>
-    /// Prefix for <see cref="LoadHelper.LoadGameTask"/>. Attempts to locate and load the
-    /// InventoryTweaks sidecar file for the current world, then restores data into the mod state.
+    ///     Prefix for <see cref="LoadHelper.LoadGameTask" />. Attempts to locate and load the
+    ///     InventoryTweaks sidecar file for the current world, then restores data into the mod state.
     /// </summary>
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(LoadHelper), "LoadGameTask",  typeof(string), typeof(string))]
+    [HarmonyPatch(typeof(LoadHelper), "LoadGameTask", typeof(string), typeof(string))]
     public static void LoadGameTask_Prefix(string path, string stationName)
     {
         var fileInfo = new FileInfo(path);
         var inventoryTweaksFile = GetInventoryTweaksFile(fileInfo);
         if (!inventoryTweaksFile.Exists)
             return;
-        
+
         Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaksFile.FullName}");
         var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaksFile.FullName);
         NewInventoryManager.Data.Load(saveData);
@@ -136,9 +136,9 @@ public class SaveLockedSlotsPatches
     // }
 
     /// <summary>
-    /// Prefix for <see cref="SaveHelper.RollSaveFiles"/>. Ensures the oldest InventoryTweaks sidecar
-    /// file is deleted together with the corresponding world save when rolling saves.
-    /// Returns <c>false</c> to skip the original method (custom handling only).
+    ///     Prefix for <see cref="SaveHelper.RollSaveFiles" />. Ensures the oldest InventoryTweaks sidecar
+    ///     file is deleted together with the corresponding world save when rolling saves.
+    ///     Returns <c>false</c> to skip the original method (custom handling only).
     /// </summary>
     /// <param name="directoryInfo">Directory containing world save files.</param>
     /// <param name="maxCount">Maximum number of save files to keep.</param>
@@ -151,8 +151,8 @@ public class SaveLockedSlotsPatches
         if (saveFiles.Length <= maxCount)
             return false;
 
-        List<(FileInfo file, DateTime dateTime)> valueTupleList = new List<(FileInfo file, DateTime dateTime)>();
-        foreach (FileInfo file in saveFiles)
+        var valueTupleList = new List<(FileInfo file, DateTime dateTime)>();
+        foreach (var file in saveFiles)
         {
             if (DateTime.TryParseExact(file.Name.Substring(0, SaveLoadConstants.DateTimeFormat.Length),
                     SaveLoadConstants.DateTimeFormat, CultureInfo.InvariantCulture,
@@ -177,10 +177,10 @@ public class SaveLockedSlotsPatches
     }
 
     /// <summary>
-    /// Computes the InventoryTweaks sidecar file path for a given world save file.
+    ///     Computes the InventoryTweaks sidecar file path for a given world save file.
     /// </summary>
     /// <param name="world">The world save file (e.g. <c>*.save</c>).</param>
-    /// <returns>A <see cref="FileInfo"/> pointing to the sidecar xml file.</returns>
+    /// <returns>A <see cref="FileInfo" /> pointing to the sidecar xml file.</returns>
     private static FileInfo GetInventoryTweaksFile(FileInfo world)
     {
         return new FileInfo(world.FullName + "." + InventoryTweaksFileName);

@@ -1,9 +1,9 @@
-﻿using Assets.Scripts;
+﻿using System.Linq;
+using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Entities;
 using InventoryTweaks.Helpers;
-using System.Linq;
 using UnityEngine;
 
 namespace InventoryTweaks.Handlers;

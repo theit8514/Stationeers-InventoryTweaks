@@ -1,7 +1,7 @@
-﻿using Assets.Scripts.Objects;
-using InventoryTweaks.Data;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
+using Assets.Scripts.Objects;
+using InventoryTweaks.Data;
 using UnityEngine;
 
 namespace InventoryTweaks;
@@ -58,7 +58,8 @@ public class InventoryTweaksData
     {
         if (slot.Get() != null || slot.Parent == null)
             return false;
-        if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotIndex), out var lockedSlot))
+        if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotIndex),
+                out var lockedSlot))
             return true;
         return lockedSlot.PrefabHash == thing.GetPrefabHash();
     }

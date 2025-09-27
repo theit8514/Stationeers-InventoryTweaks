@@ -1,14 +1,14 @@
-﻿using Assets.Scripts;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Assets.Scripts;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
 using HarmonyLib;
 using InventoryTweaks.Helpers;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace InventoryTweaks;
 
@@ -205,7 +205,7 @@ public static class NewInventoryManager
         {
             Plugin.Log.LogInfo($"Finding slot for {thing.DisplayName}");
             // Find slot that is not occupied.
-            foreach (var slot in targetSlots.Where(x => x.IsOccupied == false))
+            foreach (var slot in targetSlots.Where(x => !x.IsOccupied))
             {
                 Plugin.Log.LogInfo(
                     $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
@@ -219,7 +219,8 @@ public static class NewInventoryManager
 
         if (targetSlot == null && targetSlots.All(x => x.IsOccupied || x.IsLocked))
         {
-            ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked", aged: false);
+            ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked",
+                aged: false);
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
             return;
         }
@@ -229,8 +230,8 @@ public static class NewInventoryManager
         targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(thing.SlotType, ExcludeHandSlots) ??
                        FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(thing.SlotType, true);
         if (targetSlot == null)
-        {
             // If the slot was not found, find the next available slot in the main slots.
+        {
             foreach (var slot in InventoryManager.ParentHuman.Slots)
             {
                 if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Get() == null)
@@ -274,7 +275,7 @@ public static class NewInventoryManager
                 x.IsOccupied && x.OccupantPrefabHash == prefabHash) // Then by occupied slots (for stacking)
             .ThenByDescending(x => x.IsLocked && x.LockedToPrefabHash == prefabHash) // Then by locked slots
             .ThenByDescending(x => x.IsOfSlotType(thing.SlotType)) // Then by slots of this type
-            .ThenBy(x => x.IsOccupied == false) // Then by non-occupied slots
+            .ThenBy(x => !x.IsOccupied) // Then by non-occupied slots
             .ToArray();
         Plugin.Log.LogInfo("Slots: \r\n" + string.Join("\r\n",
             sortedSlots.Select(slot =>
@@ -325,9 +326,7 @@ public static class NewInventoryManager
         if (slot.Get() == null || !slot.Get().HasSlots)
             yield break;
         foreach (var childSlot in slot.Get().Slots.SelectMany(RecurseSlots))
-        {
             yield return childSlot;
-        }
     }
 
     public static void LockSlotAction()

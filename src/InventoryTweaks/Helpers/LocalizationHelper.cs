@@ -1,7 +1,7 @@
-﻿using Assets.Scripts;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Assets.Scripts;
 
 namespace InventoryTweaks.Helpers;
 

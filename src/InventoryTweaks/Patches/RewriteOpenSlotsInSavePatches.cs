@@ -28,9 +28,7 @@ internal class RewriteOpenSlotsInSavePatches
             {
                 yield return slot;
                 foreach (var childSlot in RecurseFilledSlots(slot.Get()))
-                {
                     yield return childSlot;
-                }
             }
         }
 
@@ -121,19 +119,20 @@ internal class RewriteOpenSlotsInSavePatches
         foreach (var window in InventoryWindowManager.Instance.Windows.Where(window => window.GameObject != null))
         {
             var stringHash = window.ParentSlot.StringHash;
-            Plugin.Log.LogDebug($"String Hash: {stringHash} IsTool: {stringHash == ToolHash} IsNone: {stringHash == NoneHash}");
+            Plugin.Log.LogDebug(
+                $"String Hash: {stringHash} IsTool: {stringHash == ToolHash} IsNone: {stringHash == NoneHash}");
             // For any non-standard slots (i.e. slots inside a tool belt or jetpack inventory)
             // the stringHash will not be enough to reopen the window. If we have a parent and one of these string hashes
             // store the reference id instead.
             if ((stringHash == 0 || stringHash == ToolHash || stringHash == NoneHash) && window.Parent != null)
             {
-                // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
-                // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
-                // in the world to overflow this value.
-                // There is also a very tiny chance of overlapping an actual StringHash value, but there's not
-                // a lot we can do about that.
                 try
                 {
+                    // Unfortunately, reference id is a long, and may run into overflow issues trying to fit into the StringHash's int value.
+                    // Fortunately, reference ids appear to be sequential. This means that you would need 2147483647 items
+                    // in the world to overflow this value.
+                    // There is also a very tiny chance of overlapping an actual StringHash value, but there's not
+                    // a lot we can do about that.
                     stringHash = Convert.ToInt32(window.Parent.ReferenceId);
                     Plugin.Log.LogDebug($"Writing ReferenceId {stringHash} into StringHash.");
                 }

@@ -1,6 +1,6 @@
-﻿using HarmonyLib;
+﻿using System;
+using HarmonyLib;
 using InputSystem;
-using System;
 using UnityEngine;
 
 namespace InventoryTweaks.Helpers;

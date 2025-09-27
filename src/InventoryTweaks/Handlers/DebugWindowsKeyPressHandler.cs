@@ -1,5 +1,5 @@
-﻿using Assets.Scripts.UI;
-using System.Linq;
+﻿using System.Linq;
+using Assets.Scripts.UI;
 using UnityEngine;
 
 namespace InventoryTweaks.Handlers;
