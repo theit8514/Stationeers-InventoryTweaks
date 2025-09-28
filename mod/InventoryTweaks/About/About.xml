@@ -1,28 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>Inventory Tweaks</Name>
-  <Author>theit8514</Author>
-  <Version>0.4.1</Version>
-  <Description>[h1]Inventory Tweaks[/h1]
-This mod is designed to improve the inventory management aspect of Stationeers.
-[h2]Requirements[/h2]
-WARNING: This is a StationeersLaunchPad Plugin Mod. It requires BepInEx to be installed with the StationeersLaunchPad plugin.
-See: https://github.com/StationeersLaunchPad/StationeersLaunchPad
-Detailed installation instructions available here: https://github.com/theit8514/Stationeers-InventoryTweaks#installation-steam-workshop
-[h2]Features[/h2]
-* Combine items into existing stacks when moving via Smart Stow (default G)
-* Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
-* Fixes weird gaps between inventory windows
-* Fixes tracking of original slots so that items return to their proper place via Smart Stow.
-* Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.)
-[h2]License[/h2]
-This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
-  </Description>
-  <ChangeLog xsi:nil="true" />
-  <WorkshopHandle>3573053238</WorkshopHandle>
-  <Tags />
-  <Dependencies />
-  <LoadBefore />
-  <LoadAfter />
-  <InGameDescription xsi:nil="true" />
+    <Name>Inventory Tweaks</Name>
+    <Author>theit8514</Author>
+    <Version>0.4.2</Version>
+    <Description>[h1]Inventory Tweaks[/h1]
+        This mod is designed to improve the inventory management aspect of Stationeers.
+        [h2]Requirements[/h2]
+        WARNING: This is a StationeersLaunchPad Plugin Mod. It requires BepInEx to be installed with the StationeersLaunchPad plugin.
+        See: https://github.com/StationeersLaunchPad/StationeersLaunchPad
+        Detailed installation instructions available here: https://github.com/theit8514/Stationeers-InventoryTweaks#installation-steam-workshop
+        [h2]Features[/h2]
+        * Combine items into existing stacks when moving via Smart Stow (default G)
+        * Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
+        * Fixes weird gaps between inventory windows
+        * Fixes tracking of original slots so that items return to their proper place via Smart Stow.
+        * Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.)
+        [h2]License[/h2]
+        This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
+    </Description>
+    <ChangeLog>
+        0.4.2:
+        - Fixed Stationeers crashes when mod is uninstalled. This change requires InventoryTweaks save data to be migrated.
+        - Fixed duplicate harmony patching if installed multiple times.
+        
+        0.4.1:
+        - Published to Steam Workshop
+
+        0.4.0:
+        - Updated for Stationeers "Biggest Update Ever"
+        - Fixed Open Slot detection for tools, adding items with hash "None"
+        - Updated to new save format
+        - Fixed lock slots being filled with Smart Stow
+    </ChangeLog>
+    <WorkshopHandle>3573053238</WorkshopHandle>
+    <Tags />
+    <Dependencies />
+    <LoadBefore />
+    <LoadAfter />
+    <InGameDescription xsi:nil="true" />
 </ModMetadata>
