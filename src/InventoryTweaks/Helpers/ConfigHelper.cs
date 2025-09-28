@@ -24,9 +24,10 @@ internal static class ConfigHelper
         private const string DescriptionEnableLockedSlots =
             """
             This will enable or disable the save feature of Locked Slots.
-            If enabled, this will save the locked slots into a new InventoryTweaks.xml file in your game save.
+            If enabled, this will save the locked slots into a new InventoryTweaks.xml file in your game save folder.
 
-            This does not modify the existing world save, only creates a new file in the world folder as the game is saving.
+            This does not modify the existing world save, only creates a new file in the folder as the game is saving.
+            It has been updated to better support mod uninstallation.
             """;
 
         private static ConfigEntry<bool> _configEnableRewriteOpenSlots;
