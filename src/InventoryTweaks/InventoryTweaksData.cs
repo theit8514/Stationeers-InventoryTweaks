@@ -10,9 +10,14 @@ public class InventoryTweaksData
 {
     private readonly Dictionary<Tuple<long, int>, ILockedSlot> _lockedSlots = new();
 
-    public void Load(InventoryTweaksSaveData saveData)
+    public void Clear()
     {
         _lockedSlots.Clear();
+    }
+
+    public void Load(InventoryTweaksSaveData saveData)
+    {
+        Clear();
         foreach (var container in saveData.LockedSlotsData)
         {
             foreach (var slot in container.LockedSlots)

@@ -4,10 +4,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Assets.Scripts;
+using Assets.Scripts.Localization2;
 using Assets.Scripts.Serialization;
+using Assets.Scripts.Util;
 using Cysharp.Threading.Tasks;
 using HarmonyLib;
 using InventoryTweaks.Data;
+using UI;
 
 namespace InventoryTweaks.Patches;
 
@@ -25,6 +29,11 @@ public class SaveLockedSlotsPatches
     public const string InventoryTweaksFileName = "InventoryTweaks.xml";
 
     /// <summary>
+    ///     Folder name used for InventoryTweaks data.
+    /// </summary>
+    public const string InventoryTweaksFolder = "InventoryTweaks";
+
+    /// <summary>
     ///     Postfix for <see cref="SaveHelper.Save(DirectoryInfo,string,bool,CancellationToken)" />.
     ///     Serializes InventoryTweaks data to a temporary file, then after the base save completes,
     ///     copies it to a sidecar file next to the world save (e.g. <c>world.save.InventoryTweaks.xml</c>).
@@ -38,6 +47,7 @@ public class SaveLockedSlotsPatches
     [HarmonyPostfix]
     [HarmonyPatch(typeof(SaveHelper), "Save", typeof(DirectoryInfo), typeof(string), typeof(bool),
         typeof(CancellationToken))]
+    [HarmonyWrapSafe]
     public static void Save_Postfix(
         DirectoryInfo saveDirectory,
         string saveFileName,
@@ -48,8 +58,8 @@ public class SaveLockedSlotsPatches
     {
         Plugin.Log.LogInfo("Starting save for inventory data");
         var saveData = NewInventoryManager.Data.Save();
-        var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        var tempFile = GetInventoryTweaksFile(new FileInfo(tempFilePath));
+        var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.xml");
+        var tempFile = new FileInfo(tempFilePath);
         if (!saveData.Serialize(tempFile.FullName))
         {
             Plugin.Log.LogError("Failed to serialize data to disk.");
@@ -90,7 +100,8 @@ public class SaveLockedSlotsPatches
 
             try
             {
-                tempFile.Delete();
+                if (tempFile.Exists)
+                    tempFile.Delete();
             }
             catch
             {
@@ -108,10 +119,17 @@ public class SaveLockedSlotsPatches
     /// </summary>
     [HarmonyPrefix]
     [HarmonyPatch(typeof(LoadHelper), "LoadGameTask", typeof(string), typeof(string))]
+    [HarmonyWrapSafe]
     public static void LoadGameTask_Prefix(string path, string stationName)
     {
+        NewInventoryManager.Data.Clear();
         var fileInfo = new FileInfo(path);
+        // Check the new format first
         var inventoryTweaksFile = GetInventoryTweaksFile(fileInfo);
+        // If that doesn't exist, check the legacy format (if user did not run migration)
+        if (!inventoryTweaksFile.Exists)
+            inventoryTweaksFile = GetLegacyInventoryTweaksFile(fileInfo);
+        // If neither exists, don't load anything.
         if (!inventoryTweaksFile.Exists)
             return;
 
@@ -119,21 +137,6 @@ public class SaveLockedSlotsPatches
         var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaksFile.FullName);
         NewInventoryManager.Data.Load(saveData);
     }
-
-    // [HarmonyPrefix]
-    // [HarmonyPatch(typeof(XmlSaveLoad), "LoadWorld")]
-    // public static void LoadWorld_Prefix()
-    // {
-    //     Plugin.Log.LogDebug($"LoadWorld called for ${XmlSaveLoad.Instance.CurrentWorldSave.World.FullName}");
-    //     // Load data from InventoryTweaks xml
-    //     var inventoryTweaks = GetInventoryTweaksFile(XmlSaveLoad.Instance.CurrentWorldSave.World);
-    //     if (!inventoryTweaks.Exists)
-    //         return;
-    //
-    //     Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaks.FullName}");
-    //     var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaks.FullName);
-    //     NewInventoryManager.Data.Load(saveData);
-    // }
 
     /// <summary>
     ///     Prefix for <see cref="SaveHelper.RollSaveFiles" />. Ensures the oldest InventoryTweaks sidecar
@@ -145,6 +148,7 @@ public class SaveLockedSlotsPatches
     /// <returns><c>false</c> to prevent execution of the original method.</returns>
     [HarmonyPrefix]
     [HarmonyPatch(typeof(SaveHelper), "RollSaveFiles")]
+    [HarmonyWrapSafe]
     public static bool RollSaveFiles_Prefix(DirectoryInfo directoryInfo, int maxCount)
     {
         var saveFiles = directoryInfo.GetFiles().Where(x => x.Extension == ".save").ToArray();
@@ -176,13 +180,89 @@ public class SaveLockedSlotsPatches
         return false;
     }
 
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(GameManager), "MajorUpdatePopup")]
+    public static void GameManager_MajorUpdatePopup_Postfix()
+    {
+        var saveFolder = StationSaveUtils.GetSavePathSavesSubDir();
+        var files = Migrations.MigrateInventoryTweaksSaveStorage(saveFolder, true);
+        if (files.Length <= 0)
+            return;
+
+        Singleton<ConfirmationPanel>.Instance.ShowRaw("InventoryTweaks",
+            $"""
+             An old InventoryTweaks save file has been found in your saves folder. In 0.4.2, InventoryTweaks changed how saves are stored to prevent issues with mod uninstallation. Would you like to migrate these save files to the new format?
+             If {Localization.GetInterface("ButtonClose")} is clicked, the saves will not be migrated and you may lose your locked slots information.
+             """,
+            GameStrings.OkayConfirmation,
+            () => Migrations.MigrateInventoryTweaksSaveStorage(saveFolder),
+            Localization.GetInterface("ButtonClose"), closeOnEscape: false);
+    }
+
     /// <summary>
-    ///     Computes the InventoryTweaks sidecar file path for a given world save file.
+    ///     Computes the legacy InventoryTweaks sidecar file path for a given world save file.
+    /// </summary>
+    /// <param name="world">The world save file (e.g. <c>*.save</c>).</param>
+    /// <returns>A <see cref="FileInfo" /> pointing to the sidecar xml file.</returns>
+    private static FileInfo GetLegacyInventoryTweaksFile(FileInfo world)
+    {
+        return new FileInfo(world.FullName + "." + InventoryTweaksFileName);
+    }
+
+    /// <summary>
+    ///     Computes the InventoryTweaks file path for a given world save file.
     /// </summary>
     /// <param name="world">The world save file (e.g. <c>*.save</c>).</param>
     /// <returns>A <see cref="FileInfo" /> pointing to the sidecar xml file.</returns>
     private static FileInfo GetInventoryTweaksFile(FileInfo world)
     {
-        return new FileInfo(world.FullName + "." + InventoryTweaksFileName);
+        try
+        {
+            var savePath = Path.GetFullPath(StationSaveUtils.GetSavePathSavesSubDir().FullName);
+            var worldPath = world.Directory == null ? null : Path.GetFullPath(world.Directory.FullName);
+            if (worldPath == null || worldPath.Length <= savePath.Length || !worldPath.Substring(0, savePath.Length)
+                    .Equals(savePath, StringComparison.OrdinalIgnoreCase))
+            {
+                // If we're not in the save folder, don't attempt to access the file.
+                return null;
+            }
+
+            var relativeSavePath = worldPath.Substring(savePath.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            // Split the path to inject InventoryTweaks between world name and save name
+            var pathParts = relativeSavePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var inventoryTweaksFileName = world.Name + "." + InventoryTweaksFileName;
+            switch (pathParts.Length)
+            {
+                case >= 2:
+                {
+                    // If more than 2 parts, could be an odd folder format? not sure if that's supported but handle it anyways
+                    // Extract last part, e.g. quicksave, autosave, manualsave, or root folder.
+                    var typePart = pathParts.Last();
+                    var worldPart = Path.Combine(pathParts.SkipLast(1).ToArray());
+                    // Reconstruct: savePath + worldName + InventoryTweaks + type + filename
+                    var saveFile = Path.Combine(savePath, worldPart, InventoryTweaksFolder, typePart,
+                        inventoryTweaksFileName);
+                    Plugin.Log.LogDebug($"Determined InventoryTweaks save file of {saveFile}");
+                    return new FileInfo(saveFile);
+                }
+                case 1:
+                {
+                    // If one part, this should be a main save file.
+                    var saveFile = Path.Combine(worldPath, InventoryTweaksFolder, inventoryTweaksFileName);
+                    Plugin.Log.LogDebug($"Determined InventoryTweaks save file of {saveFile}");
+                    return new FileInfo(saveFile);
+                }
+                default:
+                    Plugin.Log.LogError($"Could not determine world save file format: {world.FullName}");
+                    return null;
+            }
+        }
+        catch
+        {
+            Plugin.Log.LogError($"Could not determine world save file format: {world.FullName}");
+            return null;
+        }
     }
 }
