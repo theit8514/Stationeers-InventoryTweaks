@@ -40,6 +40,17 @@ public class Plugin : BaseUnityPlugin
 
         var instance = new Harmony(HarmonyID);
         instance.PatchAll(typeof(ModKeyManager));
+        // Register ignore conflicts for base game
+        if (!KeyManager.IgnoreConflictKeyMaps.TryAdd("PingHighlight", ["LockSlot"]))
+        {
+            KeyManager.IgnoreConflictKeyMaps["PingHighlight"].Add("LockSlot");
+        }
+
+        // Register ignore conflicts for this mod. Note that we don't apply the inverse here.
+        if (!KeyManager.IgnoreConflictKeyMaps.TryAdd("LockSlot", ["PingHighlight", "Zoop Add Waypoint"]))
+        {
+            KeyManager.IgnoreConflictKeyMaps["LockSlot"].AddRange(["PingHighlight", "Zoop Add Waypoint"]);
+        }
         instance.PatchAll(typeof(KeyBindHelpers));
         instance.PatchAll(typeof(InventoryManagerPatches));
         instance.PatchAll(typeof(InventoryWindowManagerPatches));
