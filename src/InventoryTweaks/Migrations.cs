@@ -41,9 +41,9 @@ public static class Migrations
                 return;
             if (!target.Exists)
             {
-                if (dryRun)
-                    Plugin.Log.LogInfo($"Would create directory {target.FullName}");
-                else
+                Plugin.Log.LogInfo($"Migration: Create directory {target.FullName}");
+
+                if (!dryRun)
                     Directory.CreateDirectory(target.FullName);
             }
 
@@ -51,10 +51,19 @@ public static class Migrations
             foreach (var itFile in itFiles)
             {
                 files.Add(itFile);
-                if (dryRun)
-                    Plugin.Log.LogInfo($"Would migrate {itFile.FullName} to {target.FullName + "/" + itFile.Name}");
-                else
-                    itFile.MoveTo(target.FullName + "/" + itFile.Name);
+                var targetFile = new FileInfo(Path.Combine(target.FullName, itFile.Name));
+
+                Plugin.Log.LogInfo($"Migrate {itFile.FullName} to {targetFile.FullName}");
+                if (targetFile.Exists)
+                {
+                    Plugin.Log.LogWarning(
+                        $"The target file {targetFile.FullName} exists, will overwrite it");
+                    if (!dryRun)
+                        targetFile.Delete();
+                }
+
+                if (!dryRun)
+                    itFile.MoveTo(targetFile.FullName);
             }
         }
     }
