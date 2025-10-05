@@ -2,7 +2,7 @@
 <ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.2</Version>
+    <Version>0.4.3</Version>
     <Description>[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
         [h2]Requirements[/h2]
@@ -14,11 +14,18 @@
         * Add keybind for hitting "Next" on your current active item (for example, the Advanced Tablet)
         * Fixes weird gaps between inventory windows
         * Fixes tracking of original slots so that items return to their proper place via Smart Stow.
-        * Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.)
+        * Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.). Hover over the slot using Alt and press keybind to lock/unlock.
+        * Override Inventory Select keybind to allow swapping when Invalid slot selected (e.g. trying to swap non-tool into a tool slot)
         [h2]License[/h2]
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     </Description>
     <ChangeLog>
+        0.4.3:
+        - Added config option for overriding Inventory Select keybind for Invalid slots (e.g. trying to swap non-tool into a tool slot)
+        - Fixed stowing item currently under construction.
+        - Fixed key conflict message.
+        - Fixed migration when file already exists.
+
         0.4.2:
         - Fixed Stationeers crashes when mod is uninstalled. This change requires InventoryTweaks save data to be migrated.
         - Fixed duplicate harmony patching if installed multiple times.
