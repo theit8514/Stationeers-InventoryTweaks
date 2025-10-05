@@ -1,5 +1,6 @@
 ﻿using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
+using Assets.Scripts.UI;
 using HarmonyLib;
 
 namespace InventoryTweaks.Patches;
@@ -19,6 +20,13 @@ internal class InventoryManagerPatches
     {
         NewInventoryManager.SmartStow(selectedSlot);
         return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(InventoryWindowManager), "SinglePressInteraction")]
+    public static bool SinglePressInteraction_Prefix()
+    {
+        return !NewInventoryManager.BeforeSinglePressInteraction(InventoryWindowManager.CurrentScollButton);
     }
 
     [HarmonyPrefix]

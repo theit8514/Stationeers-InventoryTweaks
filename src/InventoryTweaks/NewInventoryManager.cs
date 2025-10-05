@@ -25,6 +25,7 @@ public static class NewInventoryManager
     private static readonly Dictionary<long, Slot> OriginalSlots = new();
     private static readonly Traverse FindFreeSlotOpenWindowsSlotPriority;
     private static readonly Traverse PerformHiddenSlotMoveToAnimation;
+    private static readonly Traverse IsValid;
 
     static NewInventoryManager()
     {
@@ -34,50 +35,127 @@ public static class NewInventoryManager
         PerformHiddenSlotMoveToAnimation =
             traverse.Method("PerformHiddenSlotMoveToAnimation",
                 new[] { typeof(Slot), typeof(Slot), typeof(DynamicThing) });
+
+        var traverse2 = Traverse.Create(typeof(InventoryWindowManager));
+        IsValid = traverse2.Method("IsValid");
     }
 
     /// <summary>
-    ///     Replacement function for SmartStow
+    ///     Replacement function for SmartStow that intelligently handles item placement.
+    ///     Attempts to move items to appropriate slots based on type, stackability, and locked slot rules.
     /// </summary>
-    /// <param name="selectedSlot"></param>
-    public static void SmartStow(Slot selectedSlot)
+    /// <param name="selectedSlot">The slot containing the item to be stowed</param>
+    /// <returns>True if the item was successfully stowed, false otherwise</returns>
+    public static bool SmartStow(Slot selectedSlot)
     {
         if (selectedSlot == null || selectedSlot.Get() == null)
-            return;
+            return false;
         try
         {
-            Plugin.Log.LogDebug($"Handling SmartStow request for {selectedSlot}");
+            Plugin.Log.LogDebug($"Handling SmartStow request for {SlotHelper.GetSlotDisplayName(selectedSlot)}");
             var targetSlots = GetTargetSlotsOrdered(selectedSlot.Get())
                 .ToArray();
 
             // If the item is stackable, run our stackable code.
             if (selectedSlot.Get() is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
-                return;
+                return false;
 
             if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
                 InventoryManager.RightHandSlot.Get() == selectedSlot.Get())
-                DoubleClickMoveToInventory(selectedSlot, targetSlots);
-            else if (InventoryManager.ActiveHandSlot != null && InventoryManager.ActiveHandSlot.Get() == null)
             {
+                Plugin.Log.LogDebug("Moving hand to inventory");
+                return DoubleClickMoveToInventory(selectedSlot, targetSlots);
+            }
+
+            var activeHand = InventoryManager.ActiveHandSlot;
+            if (activeHand != null && activeHand.Get() == null)
+            {
+                Plugin.Log.LogDebug("Moving inventory to active hand");
                 OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
                 OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.ActiveHandSlot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
+                return true;
             }
-            else if (InventoryManager.Instance.InactiveHand?.Slot != null &&
-                     InventoryManager.Instance.InactiveHand.Slot.Get() == null)
+
+            var inactiveHand = InventoryManager.Instance.InactiveHand?.Slot;
+            if (inactiveHand != null && inactiveHand.Get() == null)
             {
+                Plugin.Log.LogDebug("Moving inventory to active hand");
                 OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
                 OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.Instance.InactiveHand.Slot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
+                return true;
             }
-            else
-                UIAudioManager.Play(UIAudioManager.ActionFailHash);
+
+            UIAudioManager.Play(UIAudioManager.ActionFailHash);
+            return false;
         }
         catch (Exception ex)
         {
             Plugin.Log.LogError(
                 $"Exception encountered on SmartStow: {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+            return false;
         }
+    }
+
+
+    /// <summary>
+    ///     Handles single press interactions with inventory slots, providing enhanced behavior
+    ///     when the inventory select override is enabled.
+    /// </summary>
+    /// <param name="currentScrollButton">The currently selected scroll button in the inventory</param>
+    /// <returns>True if the interaction was handled by this method, false to use default behavior</returns>
+    public static bool BeforeSinglePressInteraction(SlotDisplayButton currentScrollButton)
+    {
+        // If config option is disabled, use default handling
+        if (!ConfigHelper.General.EnableOverrideInventorySelect)
+            return false;
+
+        // Fall-through cases for scroll not initialized, buttons and non-slot items
+        if (!currentScrollButton.IsVisible || currentScrollButton.Interactable != null ||
+            currentScrollButton.Slot == null)
+            return false;
+
+        var valid = IsValid.GetValue<KeyResult>();
+        switch (valid)
+        {
+            case KeyResult.Invalid:
+                // This is a special case where the game thinks we can't swap, but we should be good to stow+swap
+                var stowResult = SmartStow(InventoryManager.ActiveHandSlot);
+                valid = IsValid.GetValue<KeyResult>();
+                // If the smart stow failed, try regular swapping.
+                if (!stowResult)
+                {
+                    ConsoleWindow.PrintAction("Can't store this item");
+                    // Retry with default logic if it's still going to try swap.
+                    return valid != KeyResult.Swap;
+                }
+
+                InventoryWindowManager.ActiveHand.PlayerMoveToSlot(currentScrollButton.Slot.Get());
+                break;
+            case KeyResult.Merge:
+                // Slot and hand contain same item type, merge
+                // TODO: Try to empty hand by filling all slots with this item in inventory
+                return false;
+            case KeyResult.Swap:
+                // Slot and hand contain different items, with compatible slot types
+                // Do not override game logic here, as stow action will cause item to not appear in selected slot.
+                // TODO: Possibly detect locked slots of the given item and store item there instead of selected slot.
+                return false;
+            case KeyResult.HandToSlot:
+                // Full hand and empty slot detected, move to that slot handled by default logic.
+                return false;
+            case KeyResult.SlotToHand:
+                // Full slot and empty hand detected, move to hand handled by default logic. 
+                return false;
+            case KeyResult.None:
+            default:
+                Plugin.Log.LogWarning($"Unexpected KeyResult value {valid}, skipping.");
+                return false;
+        }
+
+        return true;
+
     }
 
     /// <summary>
@@ -172,7 +250,7 @@ public static class NewInventoryManager
     /// </summary>
     /// <param name="selectedSlot"></param>
     /// <param name="targetSlots"></param>
-    private static void DoubleClickMoveToInventory(Slot selectedSlot, SlotData[] targetSlots)
+    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotData[] targetSlots)
     {
         var thing = selectedSlot.Get();
         Slot targetSlot = null;
@@ -222,7 +300,7 @@ public static class NewInventoryManager
             ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked",
                 aged: false);
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
-            return;
+            return false;
         }
 
         // This code is largely unchanged from the base code, except for the ordering of operations.
@@ -250,11 +328,15 @@ public static class NewInventoryManager
         }
 
         if (targetSlot == null)
+        {
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
+            return false;
+        }
         else
         {
             OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
             UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
+            return true;
         }
     }
 

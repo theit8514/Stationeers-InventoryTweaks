@@ -30,10 +30,18 @@ internal static class ConfigHelper
             It has been updated to better support mod uninstallation.
             """;
 
+        private const string DescriptionEnableOverrideInventorySelect =
+            """
+            Enable the override of the Inventory Select keybinding to use Smart Stow to store items instead of the
+            selected slot.
+            """;
+
         private static ConfigEntry<bool> _configEnableRewriteOpenSlots;
         private static ConfigEntry<bool> _configEnableSaveLockedSlots;
+        private static ConfigEntry<bool> _configEnableOverrideInventorySelect;
         public static bool EnableRewriteOpenSlots => _configEnableRewriteOpenSlots.Value;
         public static bool EnableSaveLockedSlots => _configEnableSaveLockedSlots.Value;
+        public static bool EnableOverrideInventorySelect => _configEnableOverrideInventorySelect.Value;
 
         public static void InitConfig(ConfigFile configFile)
         {
@@ -46,6 +54,11 @@ internal static class ConfigHelper
                 nameof(EnableSaveLockedSlots),
                 false, // Disabled by default
                 DescriptionEnableLockedSlots);
+
+            _configEnableOverrideInventorySelect = configFile.Bind(nameof(General),
+                nameof(EnableOverrideInventorySelect),
+                false, // Disabled by default
+                DescriptionEnableOverrideInventorySelect);
         }
     }
 }
