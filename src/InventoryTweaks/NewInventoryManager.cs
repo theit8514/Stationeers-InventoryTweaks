@@ -411,6 +411,10 @@ public static class NewInventoryManager
             yield return childSlot;
     }
 
+    /// <summary>
+    ///     Toggles the lock state of the currently hovered slot.
+    ///     If the slot is empty, it unlocks the slot. If occupied, it locks the slot to that item type.
+    /// </summary>
     public static void LockSlotAction()
     {
         // Get the current hovered slot.
@@ -433,6 +437,12 @@ public static class NewInventoryManager
         }
     }
 
+    /// <summary>
+    ///     Determines if a move operation is allowed based on slot lock rules.
+    /// </summary>
+    /// <param name="thing">The item being moved</param>
+    /// <param name="destinationSlot">The destination slot</param>
+    /// <returns>True if move is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowMove(DynamicThing thing, Slot destinationSlot)
     {
         if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotIndex, out var destinationLock))
@@ -444,6 +454,12 @@ public static class NewInventoryManager
         return null;
     }
 
+    /// <summary>
+    ///     Determines if a swap operation between two slots is allowed based on slot lock rules.
+    /// </summary>
+    /// <param name="sourceSlot">The source slot</param>
+    /// <param name="destinationSlot">The destination slot</param>
+    /// <returns>True if swap is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowSwap(Slot sourceSlot, Slot destinationSlot)
     {
         if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
@@ -461,6 +477,12 @@ public static class NewInventoryManager
         return null;
     }
 
+    /// <summary>
+    ///     Determines if a swap operation between a slot and a dynamic thing is allowed based on slot lock rules.
+    /// </summary>
+    /// <param name="sourceSlot">The source slot</param>
+    /// <param name="destination">The destination dynamic thing</param>
+    /// <returns>True if swap is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowSwap(Slot sourceSlot, DynamicThing destination)
     {
         if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
