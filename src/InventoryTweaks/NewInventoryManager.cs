@@ -72,7 +72,9 @@ public static class NewInventoryManager
             {
                 Plugin.Log.LogDebug("Moving inventory to active hand");
                 OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                InventoryManager.Instance.CheckCancelMultiConstructor();
                 OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.ActiveHandSlot);
+                InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.ActiveHandSlot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
                 return true;
             }
@@ -82,7 +84,9 @@ public static class NewInventoryManager
             {
                 Plugin.Log.LogDebug("Moving inventory to active hand");
                 OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                InventoryManager.Instance.CheckCancelMultiConstructor();
                 OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.Instance.InactiveHand.Slot);
+                InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.Instance.InactiveHand.Slot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
                 return true;
             }
@@ -332,12 +336,12 @@ public static class NewInventoryManager
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
             return false;
         }
-        else
-        {
-            OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
-            UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
-            return true;
-        }
+
+        InventoryManager.Instance.CheckCancelMultiConstructor();
+        OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
+        InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(targetSlot);
+        UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
+        return true;
     }
 
     private static IEnumerable<SlotData> GetTargetSlotsOrdered(DynamicThing thing)
