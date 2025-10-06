@@ -135,7 +135,15 @@ public static class NewInventoryManager
                     return valid != KeyResult.Swap;
                 }
 
-                InventoryWindowManager.ActiveHand.PlayerMoveToSlot(currentScrollButton.Slot.Get());
+                // The smart stow succeeded, now move the item to the active hand.
+                var thing = currentScrollButton.Slot.Get();
+                // If this slot was empty, then Invalid was due to slot type differences. Don't attempt to move
+                // an empty item.
+                if (thing != null)
+                {
+                    // Move the thing to the active hand.
+                    InventoryWindowManager.ActiveHand.PlayerMoveToSlot(thing);
+                }
                 break;
             case KeyResult.Merge:
                 // Slot and hand contain same item type, merge
