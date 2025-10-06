@@ -64,10 +64,14 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
   
   This does not modify the existing world save, only creates a new file in the world folder as the game is saving.
 
+* EnableOverrideInventorySelect (default: false): This will enable or disable overriding the Inventory Select keybind.
+  If enabled, the Inventory Select keybind will be enhanced to stow items when the selected item can't be swapped.
+
 # Future Plans
 
 Thoughts on additional features:
 * Add refill hand from inventory on construction/placement and sort items to inventory on deconstruction.
+* Handle Stow and Inventory Select merging to multiple partial stacks
 
 # Contributions
 
