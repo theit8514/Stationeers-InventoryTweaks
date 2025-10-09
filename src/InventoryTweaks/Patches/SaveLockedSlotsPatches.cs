@@ -76,6 +76,7 @@ public class SaveLockedSlotsPatches
                 Plugin.Log.LogInfo($"Copying inventory data file {tempFile.FullName} to {destFile.FullName}");
                 try
                 {
+                    destFile.Directory?.Create();
                     var copyStream = tempFile.OpenRead();
                     try
                     {
