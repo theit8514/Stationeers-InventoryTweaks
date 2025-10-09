@@ -2,7 +2,7 @@
 <ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.4</Version>
+    <Version>0.4.5</Version>
     <Description>[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
         [h2]Requirements[/h2]
@@ -20,6 +20,9 @@
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     </Description>
     <ChangeLog>
+        0.4.5:
+        - Fixed new save not creating directory structure
+
         0.4.4:
         - Fixed NRE with Inventory Select on an empty slot of a type not matching the item type
 
