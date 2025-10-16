@@ -144,6 +144,7 @@ public static class NewInventoryManager
                     // Move the thing to the active hand.
                     InventoryWindowManager.ActiveHand.PlayerMoveToSlot(thing);
                 }
+
                 break;
             case KeyResult.Merge:
                 // Slot and hand contain same item type, merge
@@ -167,7 +168,6 @@ public static class NewInventoryManager
         }
 
         return true;
-
     }
 
     /// <summary>
