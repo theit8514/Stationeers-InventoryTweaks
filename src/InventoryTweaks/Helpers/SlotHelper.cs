@@ -14,6 +14,8 @@ internal class SlotHelper
     public static string GetSlotDisplayName(Slot slot)
     {
         var displayName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
+        if (displayName == "None")
+            displayName = slot.Parent?.GetPassiveUITooltip().Title;
         return $"{displayName} {slot.SlotIndex}";
     }
 }
