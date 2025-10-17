@@ -59,14 +59,63 @@ public class InventoryTweaksData
             new LockedSlotTuple(containerId, slotIndex, thing.GetPrefabName(), thing.DisplayName);
     }
 
-    public bool CanPlaceInSlot(DynamicThing thing, Slot slot)
+    /// <summary>
+    ///     Checks if a slot is locked for a specific thing type.
+    /// </summary>
+    /// <param name="slot">The slot to check</param>
+    /// <param name="thing">The thing to check against the slot restriction</param>
+    /// <returns>
+    ///     <see langword="true" /> if the slot is locked for this thing type,
+    ///     <see langword="false" /> if the slot allows this thing type
+    /// </returns>
+    public bool IsSlotLockedFor(Slot slot, Thing thing)
     {
-        if (slot.Get() != null || slot.Parent == null)
-            return false;
+        return IsSlotLockedFor(slot, thing, out _);
+    }
+
+    /// <summary>
+    ///     Checks if a slot is locked for a specific thing type and provides the restriction display name.
+    /// </summary>
+    /// <param name="slot">The slot to check</param>
+    /// <param name="thing">The thing to check against the slot restriction</param>
+    /// <param name="displayName">The display name of the item type the slot is restricted to, if locked</param>
+    /// <returns>
+    ///     <see langword="true" /> if the slot is locked for this thing type,
+    ///     <see langword="false" /> if the slot allows this thing type
+    /// </returns>
+    public bool IsSlotLockedFor(Slot slot, Thing thing, out string displayName)
+    {
+        displayName = null;
+        
+        // If slot has no parent, it's blocked
+        if (slot.Parent == null)
+            return true;
+            
         if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotIndex),
                 out var lockedSlot))
-            return true;
-        return lockedSlot.PrefabHash == thing.GetPrefabHash();
+            return false; // No lock means slot allows this thing
+            
+        displayName = lockedSlot.DisplayName;
+        return thing.GetPrefabHash() != lockedSlot.PrefabHash;
+    }
+
+    /// <summary>
+    ///     Checks if a thing can be placed in a slot.
+    /// </summary>
+    /// <param name="thing">The thing to place</param>
+    /// <param name="slot">The slot to check</param>
+    /// <returns>
+    ///     <see langword="true" /> if the thing can be placed in the slot,
+    ///     <see langword="false" /> if the slot is blocked for this thing
+    /// </returns>
+    public bool CanPlaceInSlot(DynamicThing thing, Slot slot)
+    {
+        // If slot is occupied or has no parent, it's blocked
+        if (slot.Get() != null || slot.Parent == null)
+            return false;
+            
+        // Check if slot is locked to a different item type
+        return !IsSlotLockedFor(slot, thing);
     }
 
     public Lookup<long, int, ILockedSlot> ToLookup()

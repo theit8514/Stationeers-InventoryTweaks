@@ -92,4 +92,30 @@ internal class InventoryManagerPatches
     {
         return NewInventoryManager.BeforePlayerMoveToSlot(__instance, thingToMove);
     }
+
+    /// <summary>
+    ///     Prefix patch for Thing.CanEnter to enforce slot lock rules during item movement.
+    ///     Validates both direct entry and swap operations to ensure locked slots are respected.
+    /// </summary>
+    /// <param name="__instance">The thing attempting to enter the destination slot</param>
+    /// <param name="__result">The result of the CanEnter operation</param>
+    /// <param name="destinationSlot">The slot the thing is trying to enter</param>
+    /// <returns>
+    ///     <see langword="false" /> to skip original method execution and use custom result,
+    ///     <see langword="true" /> to continue with original method execution
+    /// </returns>
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Thing), nameof(Thing.CanEnter), typeof(Slot))]
+    // ReSharper disable InconsistentNaming
+    public static bool CanEnter_Prefix(Thing __instance, ref CanEnterResult __result, Slot destinationSlot)
+    // ReSharper restore InconsistentNaming
+    {
+        var result = NewInventoryManager.BeforeCanEnter(__instance, destinationSlot);
+        // If the result is null, use the default behavior.
+        if (result is null)
+            return true;
+        // Store the result and stop processing CanEnter.
+        __result = (CanEnterResult)result;
+        return false;
+    }
 }

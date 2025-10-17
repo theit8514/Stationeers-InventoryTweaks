@@ -364,6 +364,8 @@ public static class NewInventoryManager
         var sortedSlots = allHumanSlots
             .Where(x => x.IsOfSlotTypeOrNoneType(thing.SlotType)) // Only allow slots of this type or none type
             .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
+            .Where(x => thing.CanEnter(x.Slot)
+                .Result) // Only if this thing can enter this slot (depends on thing prefab)
             .OrderByDescending(x => x.IsVisible) // Sort first by visible windows.
             .ThenByDescending(x =>
                 x.IsOccupied && x.OccupantPrefabHash == prefabHash) // Then by occupied slots (for stacking)
@@ -457,11 +459,8 @@ public static class NewInventoryManager
     /// <returns>True if move is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowMove(DynamicThing thing, Slot destinationSlot)
     {
-        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotIndex, out var destinationLock))
-        {
-            if (thing.GetPrefabHash() != destinationLock.PrefabHash)
-                return false;
-        }
+        if (Data.IsSlotLockedFor(destinationSlot, thing))
+            return false;
 
         return null;
     }
@@ -474,17 +473,11 @@ public static class NewInventoryManager
     /// <returns>True if swap is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowSwap(Slot sourceSlot, Slot destinationSlot)
     {
-        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
-        {
-            if (destinationSlot.Get().GetPrefabHash() != sourceLock.PrefabHash)
-                return false;
-        }
+        if (Data.IsSlotLockedFor(sourceSlot, destinationSlot.Get()))
+            return false;
 
-        if (Data.TryGetLock(destinationSlot.Parent.ReferenceId, destinationSlot.SlotIndex, out var destinationLock))
-        {
-            if (sourceSlot.Get().GetPrefabHash() != destinationLock.PrefabHash)
-                return false;
-        }
+        if (Data.IsSlotLockedFor(destinationSlot, sourceSlot.Get()))
+            return false;
 
         return null;
     }
@@ -497,13 +490,45 @@ public static class NewInventoryManager
     /// <returns>True if swap is allowed, false if blocked, null to use default behavior</returns>
     public static bool? AllowSwap(Slot sourceSlot, DynamicThing destination)
     {
-        if (Data.TryGetLock(sourceSlot.Parent.ReferenceId, sourceSlot.SlotIndex, out var sourceLock))
+        if (Data.IsSlotLockedFor(sourceSlot, destination))
+            return false;
+        return null;
+    }
+
+    /// <summary>
+    ///     Validates whether a thing can enter a destination slot based on slot lock rules.
+    ///     Handles both direct entry and swap operations by checking if locked slots would be violated.
+    /// </summary>
+    /// <param name="thing">The thing attempting to enter the destination slot</param>
+    /// <param name="destinationSlot">The slot the thing is trying to enter</param>
+    /// <returns>
+    ///     A <see cref="CanEnterResult" /> indicating failure if slot locks would be violated,
+    ///     or <see langword="null" /> if the operation should proceed with default game logic
+    /// </returns>
+    public static CanEnterResult? BeforeCanEnter(Thing thing, Slot destinationSlot)
+    {
+        var sourceDynamicThing = thing as DynamicThing;
+        var destinationDynamicThing = destinationSlot.Get();
+        var sourceSlot = sourceDynamicThing?.ParentSlot;
+        // If the thing is a DynamicThing and the destination already has a Thing and the source Thing comes from a slot
+        if (sourceDynamicThing != null && destinationDynamicThing != null && sourceSlot != null &&
+            // Check if the destination item cannot enter the source slot (where the incoming item came from)
+            Data.IsSlotLockedFor(sourceSlot, destinationDynamicThing, out var sourceLock))
         {
-            if (destination.GetPrefabHash() != sourceLock.PrefabHash)
-                return false;
+            var title = destinationDynamicThing.GetPassiveTooltip(null).Title;
+            Plugin.Log.LogInfo(
+                $"CanEnter failed: destination item {title} cannot swap back to {SlotHelper.GetSlotDisplayName(sourceSlot)}, it's locked to {sourceLock ?? "{Unknown}"}");
+            return CanEnterResult.Fail(CustomGameStrings.SourceLockedSlot.AsString(sourceLock ?? "{Unknown}", title));
         }
 
-        return null;
+        // Check if the incoming item can enter the destination slot
+        if (!Data.IsSlotLockedFor(destinationSlot, thing, out var displayNameTarget))
+            return null;
+
+        // The slot is blocked for this item, show the destination blocked message.
+        Plugin.Log.LogInfo(
+            $"CanEnter failed: source item {thing.GetPassiveTooltip(null).Title} cannot move to {SlotHelper.GetSlotDisplayName(destinationSlot)}");
+        return CanEnterResult.Fail(CustomGameStrings.DestinationLockedSlot.AsString(displayNameTarget ?? "{Unknown}"));
     }
 
     private class SlotData
