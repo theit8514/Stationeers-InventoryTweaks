@@ -75,6 +75,13 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
 * EnableOverrideInventorySelect (default: false): This will enable or disable overriding the Inventory Select keybind.
   If enabled, the Inventory Select keybind will be enhanced to stow items when the selected item can't be swapped.
 
+* SlotExclusions (default: "ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip"): List of slot exclusions in the
+  format "PrefabName:SlotName".
+  Entries should be separated by commas. This prevents automated stowing from placing items in slots of specific
+  prefabs.
+  Players can still manually place items in these slots if desired. For example, "ItemHardSuit:Programmable Chip"
+  prevents automated stow from placing programmable chips in the chip slot of hard suits.
+
 # Future Plans
 
 Thoughts on additional features:

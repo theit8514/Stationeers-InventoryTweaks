@@ -366,6 +366,7 @@ public static class NewInventoryManager
             .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
             .Where(x => thing.CanEnter(x.Slot)
                 .Result) // Only if this thing can enter this slot (depends on thing prefab)
+            .Where(x => !SlotHelper.IsSlotExcludedForItem(x.Slot, thing)) // Exclude slots based on configuration
             .OrderByDescending(x => x.IsVisible) // Sort first by visible windows.
             .ThenByDescending(x =>
                 x.IsOccupied && x.OccupantPrefabHash == prefabHash) // Then by occupied slots (for stacking)
