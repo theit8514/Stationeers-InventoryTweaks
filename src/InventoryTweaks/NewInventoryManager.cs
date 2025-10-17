@@ -48,44 +48,54 @@ public static class NewInventoryManager
     /// <returns>True if the item was successfully stowed, false otherwise</returns>
     public static bool SmartStow(Slot selectedSlot)
     {
-        if (selectedSlot == null || selectedSlot.Get() == null)
+        var selectedThing = selectedSlot?.Get();
+        if (selectedThing == null)
             return false;
         try
         {
             Plugin.Log.LogDebug($"Handling SmartStow request for {SlotHelper.GetSlotDisplayName(selectedSlot)}");
-            var targetSlots = GetTargetSlotsOrdered(selectedSlot.Get())
+            var targetSlots = GetTargetSlotsOrdered(selectedThing)
                 .ToArray();
 
             // If the item is stackable, run our stackable code.
-            if (selectedSlot.Get() is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
+            if (selectedThing is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
                 return false;
 
-            if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
-                InventoryManager.RightHandSlot.Get() == selectedSlot.Get())
+            // If this is the hand slot, move to inventory only
+            if (InventoryManager.LeftHandSlot.Get() == selectedThing ||
+                InventoryManager.RightHandSlot.Get() == selectedThing)
             {
                 Plugin.Log.LogDebug("Moving hand to inventory");
-                return DoubleClickMoveToInventory(selectedSlot, targetSlots);
+                return DoubleClickMoveToInventory(selectedSlot, targetSlots
+                    .Where(x => selectedThing.CanEnter(x.Slot)
+                        .Result) // Only if this thing can enter this slot (depends on thing prefab)
+                    .ToArray()
+                );
             }
 
+            // If the active hand is empty, move to that hand.
             var activeHand = InventoryManager.ActiveHandSlot;
-            if (activeHand != null && activeHand.Get() == null)
+            var activeHandThing = activeHand?.Get();
+            if (activeHand != null && activeHandThing == null)
             {
                 Plugin.Log.LogDebug("Moving inventory to active hand");
-                OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                OriginalSlots[selectedThing.ReferenceId] = selectedSlot;
                 InventoryManager.Instance.CheckCancelMultiConstructor();
-                OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.ActiveHandSlot);
+                OnServer.MoveToSlot(selectedThing, InventoryManager.ActiveHandSlot);
                 InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.ActiveHandSlot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
                 return true;
             }
 
+            // If the inactive hand is empty, move to that hand and select it.
             var inactiveHand = InventoryManager.Instance.InactiveHand?.Slot;
-            if (inactiveHand != null && inactiveHand.Get() == null)
+            var inactiveHandThing = inactiveHand?.Get();
+            if (inactiveHand != null && inactiveHandThing == null)
             {
                 Plugin.Log.LogDebug("Moving inventory to active hand");
-                OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
+                OriginalSlots[selectedThing.ReferenceId] = selectedSlot;
                 InventoryManager.Instance.CheckCancelMultiConstructor();
-                OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.Instance.InactiveHand.Slot);
+                OnServer.MoveToSlot(selectedThing, InventoryManager.Instance.InactiveHand.Slot);
                 InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.Instance.InactiveHand
                     .Slot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
@@ -364,8 +374,6 @@ public static class NewInventoryManager
         var sortedSlots = allHumanSlots
             .Where(x => x.IsOfSlotTypeOrNoneType(thing.SlotType)) // Only allow slots of this type or none type
             .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
-            .Where(x => thing.CanEnter(x.Slot)
-                .Result) // Only if this thing can enter this slot (depends on thing prefab)
             .Where(x => !SlotHelper.IsSlotExcludedForItem(x.Slot, thing)) // Exclude slots based on configuration
             .OrderByDescending(x => x.IsVisible) // Sort first by visible windows.
             .ThenByDescending(x =>
@@ -517,7 +525,7 @@ public static class NewInventoryManager
             Data.IsSlotLockedFor(sourceSlot, destinationDynamicThing, out var sourceLock))
         {
             var title = destinationDynamicThing.GetPassiveTooltip(null).Title;
-            Plugin.Log.LogInfo(
+            Plugin.Log.LogDebug(
                 $"CanEnter failed: destination item {title} cannot swap back to {SlotHelper.GetSlotDisplayName(sourceSlot)}, it's locked to {sourceLock ?? "{Unknown}"}");
             return CanEnterResult.Fail(CustomGameStrings.SourceLockedSlot.AsString(sourceLock ?? "{Unknown}", title));
         }
@@ -527,7 +535,7 @@ public static class NewInventoryManager
             return null;
 
         // The slot is blocked for this item, show the destination blocked message.
-        Plugin.Log.LogInfo(
+        Plugin.Log.LogDebug(
             $"CanEnter failed: source item {thing.GetPassiveTooltip(null).Title} cannot move to {SlotHelper.GetSlotDisplayName(destinationSlot)}");
         return CanEnterResult.Fail(CustomGameStrings.DestinationLockedSlot.AsString(displayNameTarget ?? "{Unknown}"));
     }
