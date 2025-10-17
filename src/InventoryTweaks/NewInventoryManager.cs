@@ -102,6 +102,19 @@ public static class NewInventoryManager
                 return true;
             }
 
+            // If both hands are full, stow the active hand and swap the item to it.
+            if (activeHand != null && activeHandThing != null &&
+                inactiveHand != null && inactiveHandThing != null)
+            {
+                Plugin.Log.LogDebug("Swap+Stow to active hand");
+                var stowResult = StowAndSwap(selectedSlot, activeHand);
+                if (stowResult)
+                {
+                    UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
+                    return true;
+                }
+            }
+
             UIAudioManager.Play(UIAudioManager.ActionFailHash);
             return false;
         }
@@ -113,6 +126,27 @@ public static class NewInventoryManager
         }
     }
 
+    private static bool StowAndSwap(Slot sourceSlot, Slot targetSlot)
+    {
+        var stowResult = SmartStow(targetSlot);
+        if (!stowResult)
+        {
+            ConsoleWindow.PrintAction("Can't store this item");
+            return false;
+        }
+
+        // The smart stow succeeded, now move the item to the active hand.
+        var sourceThing = sourceSlot.Get();
+        // If this slot was empty, then Invalid was due to slot type differences. Don't attempt to move
+        // an empty item.
+        if (sourceThing != null)
+        {
+            // Move the thing to the active hand.
+            targetSlot.PlayerMoveToSlot(sourceThing);
+        }
+
+        return true;
+    }
 
     /// <summary>
     ///     Handles single press interactions with inventory slots, providing enhanced behavior
@@ -136,24 +170,13 @@ public static class NewInventoryManager
         {
             case KeyResult.Invalid:
                 // This is a special case where the game thinks we can't swap, but we should be good to stow+swap
-                var stowResult = SmartStow(InventoryManager.ActiveHandSlot);
+                var stowResult = StowAndSwap(currentScrollButton.Slot, InventoryManager.ActiveHandSlot);
                 valid = IsValid.GetValue<KeyResult>();
                 // If the smart stow failed, try regular swapping.
                 if (!stowResult)
                 {
-                    ConsoleWindow.PrintAction("Can't store this item");
                     // Retry with default logic if it's still going to try swap.
                     return valid != KeyResult.Swap;
-                }
-
-                // The smart stow succeeded, now move the item to the active hand.
-                var thing = currentScrollButton.Slot.Get();
-                // If this slot was empty, then Invalid was due to slot type differences. Don't attempt to move
-                // an empty item.
-                if (thing != null)
-                {
-                    // Move the thing to the active hand.
-                    InventoryWindowManager.ActiveHand.PlayerMoveToSlot(thing);
                 }
 
                 break;
