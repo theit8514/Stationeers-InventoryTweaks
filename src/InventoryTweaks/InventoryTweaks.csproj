@@ -21,10 +21,10 @@
     </ItemGroup>
 
     <!-- Import Stationeers VS properties - paths etc. -->
-    <Import Project="$(SolutionDir)Stationeers.VS.props"/>
+    <Import Project="../../Stationeers.VS.props"/>
 
     <!-- Import Game/Unity DLL references -->
-    <Import Project="$(SolutionDir)Stationeers.VS.References.props"/>
+    <Import Project="../../Stationeers.VS.References.props"/>
 
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsWindows())">
         <Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(SolutionDir)scripts\update-version.ps1&quot; -AboutXmlPath &quot;$(SolutionDir)mod\InventoryTweaks\About\About.xml&quot; -Version &quot;$(Version)&quot;" />
