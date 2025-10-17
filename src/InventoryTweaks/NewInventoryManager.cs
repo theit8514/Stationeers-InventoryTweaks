@@ -86,7 +86,8 @@ public static class NewInventoryManager
                 OriginalSlots[selectedSlot.Get().ReferenceId] = selectedSlot;
                 InventoryManager.Instance.CheckCancelMultiConstructor();
                 OnServer.MoveToSlot(selectedSlot.Get(), InventoryManager.Instance.InactiveHand.Slot);
-                InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.Instance.InactiveHand.Slot);
+                InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(InventoryManager.Instance.InactiveHand
+                    .Slot);
                 UIAudioManager.Play(UIAudioManager.ObjectIntoHandHash);
                 return true;
             }
