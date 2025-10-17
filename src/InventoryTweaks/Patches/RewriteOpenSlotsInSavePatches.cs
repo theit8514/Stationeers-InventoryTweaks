@@ -67,7 +67,7 @@ internal class RewriteOpenSlotsInSavePatches
             }
 
             Plugin.Log.LogInfo(
-                $"Found slot {SlotHelper.GetSlotDisplayName(slot)} with ReferenceId {openSlot.StringHash}.");
+                $"Found {SlotHelper.GetSlotDisplayName(slot)} with ReferenceId {openSlot.StringHash}.");
             if (slot.Display.SlotWindow?.IsVisible == true)
             {
                 Plugin.Log.LogInfo("Window for slot is already open.");
@@ -75,7 +75,7 @@ internal class RewriteOpenSlotsInSavePatches
             }
 
             Plugin.Log.LogInfo(
-                $"Opening window for slot {SlotHelper.GetSlotDisplayName(slot)} with item {slot.Get().DisplayName}.");
+                $"Opening window for {SlotHelper.GetSlotDisplayName(slot)} with item {slot.Get().DisplayName}.");
             Traverse.Create(slot.Display).Method("OnPlayerInteract").GetValue();
             var slotWindow = slot.Display.SlotWindow;
             if (slotWindow != null && openSlot.IsUndocked)

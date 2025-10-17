@@ -226,9 +226,8 @@ public static class NewInventoryManager
                 var targetStack = stackSlot.Stackable;
 
                 // Merge the items into the target stack.
-                var target = $"slot {SlotHelper.GetSlotDisplayName(slot)}";
                 Plugin.Log.LogInfo(
-                    $"Merging {stack.Quantity} items into {target} which has {targetStack.Quantity} items.");
+                    $"Merging {stack.Quantity} items into {SlotHelper.GetSlotDisplayName(slot)} which has {targetStack.Quantity} items.");
                 OnServer.Merge(targetStack, stack);
                 // The source stack will now contain the remaining quantity or zero.
                 Plugin.Log.LogDebug($"Target quantity: {targetStack.Quantity} Source quantity: {stack.Quantity}");
@@ -270,7 +269,7 @@ public static class NewInventoryManager
         if (OriginalSlots.TryGetValue(thing.ReferenceId, out var originalSlot))
         {
             Plugin.Log.LogInfo(
-                $"Returning {thing.DisplayName} to original slot {SlotHelper.GetSlotDisplayName(originalSlot)}");
+                $"Returning {thing.DisplayName} to original {SlotHelper.GetSlotDisplayName(originalSlot)}");
             // Checks to ensure that we can move this item back to this slot:
             if (originalSlot.Parent?.RootParentHuman == null)
                 Plugin.Log.LogWarning("Original slot was not attached to a human");
@@ -298,7 +297,7 @@ public static class NewInventoryManager
             foreach (var slot in targetSlots.Where(x => !x.IsOccupied))
             {
                 Plugin.Log.LogInfo(
-                    $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
+                    $"{SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
                 if (slot.IsLocked && slot.LockedToPrefabHash != thing.PrefabHash)
                     continue;
 
@@ -375,7 +374,7 @@ public static class NewInventoryManager
             .ToArray();
         Plugin.Log.LogInfo("Slots: \r\n" + string.Join("\r\n",
             sortedSlots.Select(slot =>
-                $"Slot {SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
+                $"{SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
         return sortedSlots;
     }
 
@@ -388,7 +387,7 @@ public static class NewInventoryManager
     private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
     {
         Plugin.Log.LogDebug(
-            $"Hand slot {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
+            $"Hand {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
         if (targetSlot.Get() == null ||
             targetSlot.Get() == selectedSlot.Get())
             return true;

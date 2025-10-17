@@ -3,7 +3,7 @@ using Assets.Scripts.Objects;
 
 namespace InventoryTweaks.Helpers;
 
-internal class SlotHelper
+internal static class SlotHelper
 {
     public static bool IsHandSlot(Slot slot)
     {
@@ -13,9 +13,9 @@ internal class SlotHelper
 
     public static string GetSlotDisplayName(Slot slot)
     {
-        var displayName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
-        if (displayName == "None")
-            displayName = slot.Parent?.GetPassiveUITooltip().Title;
-        return $"{displayName} {slot.SlotIndex}";
+        var parentName = slot.Parent?.GetPassiveUITooltip().Title ?? "Unknown";
+        var parentPrefab = slot.Parent?.PrefabName;
+        var slotName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
+        return $"{parentName} ({parentPrefab}) slot {slotName} {slot.SlotIndex}";
     }
 }
