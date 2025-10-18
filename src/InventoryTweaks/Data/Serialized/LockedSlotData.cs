@@ -1,6 +1,6 @@
 ﻿using System.Xml.Serialization;
 
-namespace InventoryTweaks.Data;
+namespace InventoryTweaks.Data.Serialized;
 
 public class LockedSlotData
 {

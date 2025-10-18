@@ -2,7 +2,7 @@
 using System.Xml.Serialization;
 using Assets.Scripts.Serialization;
 
-namespace InventoryTweaks.Data;
+namespace InventoryTweaks.Data.Serialized;
 
 [XmlRoot("InventoryTweaks")]
 public class InventoryTweaksSaveData

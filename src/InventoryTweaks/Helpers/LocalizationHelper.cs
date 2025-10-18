@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Assets.Scripts;
 
 namespace InventoryTweaks.Helpers;
 
@@ -12,7 +11,7 @@ internal static class LocalizationHelper
 
     static LocalizationHelper()
     {
-        LocalizationType = typeof(Localization);
+        LocalizationType = typeof(Assets.Scripts.Localization);
     }
 
     public static class Interactable

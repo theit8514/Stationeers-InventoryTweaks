@@ -1,9 +1,9 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<ModMetadata xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ModMetadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
     <Version>0.4.5</Version>
-    <Description>[h1]Inventory Tweaks[/h1]
+    <Description><![CDATA[[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
         [h2]Requirements[/h2]
         WARNING: This is a StationeersLaunchPad Plugin Mod. It requires BepInEx to be installed with the StationeersLaunchPad plugin.
@@ -18,8 +18,8 @@
         * Override Inventory Select keybind to allow swapping when Invalid slot selected (e.g. trying to swap non-tool into a tool slot)
         [h2]License[/h2]
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
-    </Description>
-    <ChangeLog>
+    ]]></Description>
+    <ChangeLog><![CDATA[
         0.4.5:
         - Fixed new save not creating directory structure
 
@@ -44,7 +44,7 @@
         - Fixed Open Slot detection for tools, adding items with hash "None"
         - Updated to new save format
         - Fixed lock slots being filled with Smart Stow
-    </ChangeLog>
+    ]]></ChangeLog>
     <WorkshopHandle>3573053238</WorkshopHandle>
     <Tags />
     <Dependencies />

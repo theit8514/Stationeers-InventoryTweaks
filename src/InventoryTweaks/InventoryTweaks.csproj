@@ -4,7 +4,6 @@
         <TargetFramework>net47</TargetFramework>
         <AssemblyName>InventoryTweaks</AssemblyName>
         <Description>A mod to add better inventory management to Stationeers</Description>
-        <Version>0.4.5</Version>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
@@ -26,36 +25,4 @@
     <!-- Import Game/Unity DLL references -->
     <Import Project="../../Stationeers.VS.References.props"/>
 
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsWindows())">
-        <Exec Command="powershell.exe -ExecutionPolicy Bypass -File &quot;$(SolutionDir)scripts\update-version.ps1&quot; -AboutXmlPath &quot;$(SolutionDir)mod\InventoryTweaks\About\About.xml&quot; -Version &quot;$(Version)&quot;" />
-        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir /P &quot;$(ModDirectory)\InventoryTweaks&quot;"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(SolutionDir)\mod\InventoryTweaks\*&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /E /F /Y"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /F /Y"/>
-        <Exec
-                Command="xcopy &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
-        <Exec
-                Command="xcopy &quot;$(TargetDir)$(TargetName).pdb&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
-    </Target>
-
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="$([System.OperatingSystem]::IsLinux())">
-        <Exec Command="pwsh -File &quot;$(SolutionDir)scripts/update-version.ps1&quot; -AboutXmlPath &quot;$(SolutionDir)mod/InventoryTweaks/About/About.xml&quot; -Version &quot;$(Version)&quot;" />
-        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir -p '$(ModDirectory)/InventoryTweaks'"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="cp -r '$(SolutionDir)mod/InventoryTweaks/'* '$(ModDirectory)/InventoryTweaks'"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).dll' '$(ModDirectory)/InventoryTweaks'"/>
-        <Exec Condition="'$(ModDirectory)' != ''" Command="cp '$(TargetDir)$(TargetName).pdb' '$(ModDirectory)/InventoryTweaks'"/>
-        <Exec Condition="'$(ModDirectory)' == ''"
-              Command="cp '$(TargetDir)$(TargetName).dll' '$(StationeersDirectory)/BepInEx/plugins/'"/>
-        <Exec Condition="'$(ModDirectory)' == ''"
-              Command="cp '$(TargetDir)$(TargetName).pdb' '$(StationeersDirectory)/BepInEx/plugins/'"/>
-    </Target>
-
-    <Target Name="ZipRelease" AfterTargets="Build" Condition="'$(Configuration)'=='Release'">
-        <MakeDir Directories="$(SolutionDir)\build"/>
-        <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks"/>
-        <Copy SourceFiles="$(TargetDir)$(TargetName).pdb" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks"/>
-        <Copy SourceFiles="$(SolutionDir)\README.md" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks"/>
-        <Copy SourceFiles="$(SolutionDir)\LICENSE.md" DestinationFolder="$(SolutionDir)\mod\InventoryTweaks"/>
-        <ZipDirectory SourceDirectory="$(SolutionDir)\mod" DestinationFile="$(SolutionDir)\build\$(AssemblyName)-$(Version).zip"/>
-    </Target>
 </Project>

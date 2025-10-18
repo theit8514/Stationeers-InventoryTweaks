@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using Assets.Scripts.Serialization;
-using InventoryTweaks.Patches;
 
-namespace InventoryTweaks;
+namespace InventoryTweaks.Utilities;
 
 public static class Migrations
 {
@@ -17,7 +16,7 @@ public static class Migrations
         foreach (var directory in saveDirectories)
         {
             var target =
-                new DirectoryInfo(Path.Combine(directory.FullName, SaveLockedSlotsPatches.InventoryTweaksFolder));
+                new DirectoryInfo(Path.Combine(directory.FullName, Constants.SaveData.InventoryTweaksFolder));
             // Save Subfolders
             MigrateInventoryTweaksSaveFolder(directory, target, SaveLoadConstants.QuickSaveFolder);
             MigrateInventoryTweaksSaveFolder(directory, target, SaveLoadConstants.AutoSaveFolder);
@@ -47,7 +46,7 @@ public static class Migrations
                     Directory.CreateDirectory(target.FullName);
             }
 
-            var itFiles = source.GetFiles($"*.{SaveLockedSlotsPatches.InventoryTweaksFileName}");
+            var itFiles = source.GetFiles($"*.{Constants.SaveData.InventoryTweaksFileName}");
             foreach (var itFile in itFiles)
             {
                 files.Add(itFile);

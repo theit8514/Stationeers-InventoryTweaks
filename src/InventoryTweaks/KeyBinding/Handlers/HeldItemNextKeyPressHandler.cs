@@ -6,7 +6,7 @@ using Assets.Scripts.Objects.Entities;
 using InventoryTweaks.Helpers;
 using UnityEngine;
 
-namespace InventoryTweaks.Handlers;
+namespace InventoryTweaks.KeyBinding.Handlers;
 
 public class HeldItemNextKeyPressHandler : KeyPressHandler
 {

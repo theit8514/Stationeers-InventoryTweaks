@@ -56,14 +56,14 @@ internal static class ConfigHelper
         public static string SlotExclusions => _configSlotExclusions.Value;
 
         /// <summary>
-        /// Cached dictionary of slot exclusions for efficient runtime lookup.
-        /// Key: PrefabName, Value: HashSet of excluded slot names.
-        /// This cache is automatically updated when the configuration changes.
+        ///     Cached dictionary of slot exclusions for efficient runtime lookup.
+        ///     Key: PrefabName, Value: HashSet of excluded slot names.
+        ///     This cache is automatically updated when the configuration changes.
         /// </summary>
         public static Dictionary<string, HashSet<string>> SlotExclusionsDictionary { get; set; }
 
         /// <summary>
-        /// Initializes the configuration system and sets up event handlers.
+        ///     Initializes the configuration system and sets up event handlers.
         /// </summary>
         /// <param name="configFile">The BepInEx configuration file instance</param>
         public static void InitConfig(ConfigFile configFile)
@@ -90,14 +90,14 @@ internal static class ConfigHelper
 
             // Set up event handler to automatically update the cache when configuration changes
             configFile.SettingChanged += ConfigFileOnSettingChanged;
-            
+
             // Initialize the cache with the current configuration
             SlotExclusionsDictionary = GetSlotExclusions();
         }
 
         /// <summary>
-        /// Event handler that automatically updates the slot exclusions cache when configuration changes.
-        /// This ensures that runtime changes to the configuration are immediately reflected without requiring a restart.
+        ///     Event handler that automatically updates the slot exclusions cache when configuration changes.
+        ///     This ensures that runtime changes to the configuration are immediately reflected without requiring a restart.
         /// </summary>
         /// <param name="sender">The configuration file that triggered the change</param>
         /// <param name="e">Event arguments containing information about the changed setting</param>

@@ -2,13 +2,14 @@
 using System.Linq;
 using Assets.Scripts.Objects;
 using InventoryTweaks.Data;
-using UnityEngine;
+using InventoryTweaks.Data.Serialized;
+using InventoryTweaks.Utilities;
 
-namespace InventoryTweaks;
+namespace InventoryTweaks.Core;
 
 public class InventoryTweaksData
 {
-    private readonly Dictionary<Tuple<long, int>, ILockedSlot> _lockedSlots = new();
+    private readonly Dictionary<(long, int), ILockedSlot> _lockedSlots = new();
 
     public void Clear()
     {
@@ -22,8 +23,8 @@ public class InventoryTweaksData
         {
             foreach (var slot in container.LockedSlots)
             {
-                _lockedSlots.Add(new Tuple<long, int>(container.ContainerId, slot.SlotIndex),
-                    new LockedSlotTuple(container.ContainerId, slot.SlotIndex, slot.PrefabName,
+                _lockedSlots.Add((container.ContainerId, slot.SlotIndex),
+                    new LockedSlot(container.ContainerId, slot.SlotIndex, slot.PrefabName,
                         Prefab.Find(slot.PrefabName)?.DisplayName));
             }
         }
@@ -50,13 +51,13 @@ public class InventoryTweaksData
 
     public void UnlockSlot(long containerId, int slotIndex)
     {
-        _lockedSlots.Remove(new Tuple<long, int>(containerId, slotIndex));
+        _lockedSlots.Remove((containerId, slotIndex));
     }
 
     public void LockSlot(long containerId, int slotIndex, Thing thing)
     {
-        _lockedSlots[new Tuple<long, int>(containerId, slotIndex)] =
-            new LockedSlotTuple(containerId, slotIndex, thing.GetPrefabName(), thing.DisplayName);
+        _lockedSlots[(containerId, slotIndex)] =
+            new LockedSlot(containerId, slotIndex, thing.GetPrefabName(), thing.DisplayName);
     }
 
     /// <summary>
@@ -86,15 +87,15 @@ public class InventoryTweaksData
     public bool IsSlotLockedFor(Slot slot, Thing thing, out string displayName)
     {
         displayName = null;
-        
+
         // If slot has no parent, it's blocked
         if (slot.Parent == null)
             return true;
-            
-        if (!_lockedSlots.TryGetValue(new Tuple<long, int>(slot.Parent.ReferenceId, slot.SlotIndex),
+
+        if (!_lockedSlots.TryGetValue((slot.Parent.ReferenceId, slot.SlotIndex),
                 out var lockedSlot))
             return false; // No lock means slot allows this thing
-            
+
         displayName = lockedSlot.DisplayName;
         return thing.GetPrefabHash() != lockedSlot.PrefabHash;
     }
@@ -113,7 +114,7 @@ public class InventoryTweaksData
         // If slot is occupied or has no parent, it's blocked
         if (slot.Get() != null || slot.Parent == null)
             return false;
-            
+
         // Check if slot is locked to a different item type
         return !IsSlotLockedFor(slot, thing);
     }
@@ -121,38 +122,6 @@ public class InventoryTweaksData
     public Lookup<long, int, ILockedSlot> ToLookup()
     {
         return new Lookup<long, int, ILockedSlot>(_lockedSlots.Values,
-            data => Tuple<long, int>.Create(data.ContainerId, data.SlotIndex));
-    }
-
-    public bool TryGetLock(long containerId, int slotIndex, out ILockedSlot lockedSlot)
-    {
-        return _lockedSlots.TryGetValue(new Tuple<long, int>(containerId, slotIndex), out lockedSlot);
-    }
-
-    private sealed class LockedSlotTuple : ILockedSlot
-    {
-        public LockedSlotTuple(long containerId, int slotIndex, string prefabName, string displayName)
-        {
-            ContainerId = containerId;
-            PrefabName = prefabName;
-            PrefabHash = Animator.StringToHash(prefabName);
-            SlotIndex = slotIndex;
-            DisplayName = displayName;
-        }
-
-        /// <inheritdoc />
-        public long ContainerId { get; }
-
-        /// <inheritdoc />
-        public int SlotIndex { get; }
-
-        /// <inheritdoc />
-        public int PrefabHash { get; }
-
-        /// <inheritdoc />
-        public string PrefabName { get; }
-
-        /// <inheritdoc />
-        public string DisplayName { get; }
+            data => (data.ContainerId, data.SlotIndex));
     }
 }

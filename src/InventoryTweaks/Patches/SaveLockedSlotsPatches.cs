@@ -10,7 +10,9 @@ using Assets.Scripts.Serialization;
 using Assets.Scripts.Util;
 using Cysharp.Threading.Tasks;
 using HarmonyLib;
-using InventoryTweaks.Data;
+using InventoryTweaks.Core;
+using InventoryTweaks.Data.Serialized;
+using InventoryTweaks.Utilities;
 using UI;
 
 namespace InventoryTweaks.Patches;
@@ -24,20 +26,10 @@ namespace InventoryTweaks.Patches;
 public class SaveLockedSlotsPatches
 {
     /// <summary>
-    ///     Base file name used for InventoryTweaks data files.
-    /// </summary>
-    public const string InventoryTweaksFileName = "InventoryTweaks.xml";
-
-    /// <summary>
-    ///     Folder name used for InventoryTweaks data.
-    /// </summary>
-    public const string InventoryTweaksFolder = "InventoryTweaks";
-
-    /// <summary>
     ///     Postfix for <see cref="SaveHelper.Save(DirectoryInfo,string,bool,CancellationToken)" />.
     ///     Serializes InventoryTweaks data to a temporary file, then after the base save completes,
     ///     copies it to a sidecar file next to the world save (e.g. <c>world.save.InventoryTweaks.xml</c>).
-    ///     Any temporary file is removed afterwards. Modifies <paramref name="__result" /> to await the copy.
+    ///     Any temporary file is removed afterward. Modifies <paramref name="__result" /> to await the copy.
     /// </summary>
     /// <param name="saveDirectory">The directory where the world save is written.</param>
     /// <param name="saveFileName">The world save file name.</param>
@@ -57,7 +49,7 @@ public class SaveLockedSlotsPatches
         ref UniTask<SaveResult> __result)
     {
         Plugin.Log.LogInfo("Starting save for inventory data");
-        var saveData = NewInventoryManager.Data.Save();
+        var saveData = CustomInventoryManager.Data.Save();
         var tempFilePath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.xml");
         var tempFile = new FileInfo(tempFilePath);
         if (!saveData.Serialize(tempFile.FullName))
@@ -123,7 +115,7 @@ public class SaveLockedSlotsPatches
     [HarmonyWrapSafe]
     public static void LoadGameTask_Prefix(string path, string stationName)
     {
-        NewInventoryManager.Data.Clear();
+        CustomInventoryManager.Data.Clear();
         var fileInfo = new FileInfo(path);
         // Check the new format first
         var inventoryTweaksFile = GetInventoryTweaksFile(fileInfo);
@@ -136,7 +128,7 @@ public class SaveLockedSlotsPatches
 
         Plugin.Log.LogInfo($"Loading InventoryTweaks data from {inventoryTweaksFile.FullName}");
         var saveData = InventoryTweaksSaveData.Deserialize(inventoryTweaksFile.FullName);
-        NewInventoryManager.Data.Load(saveData);
+        CustomInventoryManager.Data.Load(saveData);
     }
 
     /// <summary>
@@ -193,11 +185,11 @@ public class SaveLockedSlotsPatches
         Singleton<ConfirmationPanel>.Instance.ShowRaw("InventoryTweaks",
             $"""
              An old InventoryTweaks save file has been found in your saves folder. In 0.4.2, InventoryTweaks changed how saves are stored to prevent issues with mod uninstallation. Would you like to migrate these save files to the new format?
-             If {Localization.GetInterface("ButtonClose")} is clicked, the saves will not be migrated and you may lose your locked slots information.
+             If {Assets.Scripts.Localization.GetInterface("ButtonClose")} is clicked, the saves will not be migrated and you may lose your locked slots information.
              """,
             GameStrings.OkayConfirmation,
             () => Migrations.MigrateInventoryTweaksSaveStorage(saveFolder),
-            Localization.GetInterface("ButtonClose"), closeOnEscape: false);
+            Assets.Scripts.Localization.GetInterface("ButtonClose"), closeOnEscape: false);
     }
 
     /// <summary>
@@ -207,7 +199,7 @@ public class SaveLockedSlotsPatches
     /// <returns>A <see cref="FileInfo" /> pointing to the sidecar xml file.</returns>
     private static FileInfo GetLegacyInventoryTweaksFile(FileInfo world)
     {
-        return new FileInfo(world.FullName + "." + InventoryTweaksFileName);
+        return new FileInfo(world.FullName + "." + Constants.SaveData.InventoryTweaksFileName);
     }
 
     /// <summary>
@@ -233,7 +225,7 @@ public class SaveLockedSlotsPatches
 
             // Split the path to inject InventoryTweaks between world name and save name
             var pathParts = relativeSavePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            var inventoryTweaksFileName = world.Name + "." + InventoryTweaksFileName;
+            var inventoryTweaksFileName = world.Name + "." + Constants.SaveData.InventoryTweaksFileName;
             switch (pathParts.Length)
             {
                 case >= 2:
@@ -243,7 +235,7 @@ public class SaveLockedSlotsPatches
                     var typePart = pathParts.Last();
                     var worldPart = Path.Combine(pathParts.SkipLast(1).ToArray());
                     // Reconstruct: savePath + worldName + InventoryTweaks + type + filename
-                    var saveFile = Path.Combine(savePath, worldPart, InventoryTweaksFolder, typePart,
+                    var saveFile = Path.Combine(savePath, worldPart, Constants.SaveData.InventoryTweaksFolder, typePart,
                         inventoryTweaksFileName);
                     Plugin.Log.LogDebug($"Determined InventoryTweaks save file of {saveFile}");
                     return new FileInfo(saveFile);
@@ -251,7 +243,8 @@ public class SaveLockedSlotsPatches
                 case 1:
                 {
                     // If one part, this should be a main save file.
-                    var saveFile = Path.Combine(worldPath, InventoryTweaksFolder, inventoryTweaksFileName);
+                    var saveFile = Path.Combine(worldPath, Constants.SaveData.InventoryTweaksFolder,
+                        inventoryTweaksFileName);
                     Plugin.Log.LogDebug($"Determined InventoryTweaks save file of {saveFile}");
                     return new FileInfo(saveFile);
                 }

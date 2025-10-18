@@ -354,6 +354,9 @@ MigrationBackup/
 Thumbs.db
 
 build/
-mod/InventoryTweaks/*.dll
-mod/InventoryTweaks/README.md
-mod/InventoryTweaks/LICENSE.md
+
+# Build project artifacts
+src/InventoryTweaks.Build/InventoryTweaks/*.dll
+src/InventoryTweaks.Build/InventoryTweaks/*.pdb
+src/InventoryTweaks.Build/InventoryTweaks/README.md
+src/InventoryTweaks.Build/InventoryTweaks/LICENSE.md

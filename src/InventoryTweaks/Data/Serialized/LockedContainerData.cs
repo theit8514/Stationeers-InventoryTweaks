@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Xml.Serialization;
 
-namespace InventoryTweaks.Data;
+namespace InventoryTweaks.Data.Serialized;
 
 public class LockedContainerData
 {

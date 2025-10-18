@@ -4,9 +4,10 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using InventoryTweaks.Handlers;
+using InventoryTweaks.Extensions;
+using InventoryTweaks.KeyBinding.Handlers;
 
-namespace InventoryTweaks;
+namespace InventoryTweaks.KeyBinding;
 
 public static class ModKeyManager
 {
@@ -19,7 +20,7 @@ public static class ModKeyManager
     private static readonly MethodInfo InjectLoadKeyboardSetting =
         SymbolExtensions.GetMethodInfo(() => LoadKeyboardSetting());
 
-    private static readonly List<KeyPressHandler> Keys = new();
+    public static readonly List<KeyPressHandler> Keys = new();
     public static event EventHandler<RegisterKeyPressHandlersArguments> RegisterKeyPressHandlers;
 
     [HarmonyTranspiler]
@@ -89,6 +90,8 @@ public static class ModKeyManager
     private static void SetupKeyBindings()
     {
         OnRegisterKeyPressHandlers(new RegisterKeyPressHandlersArguments());
+        RegisterIgnoredConflicts();
+        RegisterKeyConflicts();
     }
 
     private static void OnRegisterKeyPressHandlers(RegisterKeyPressHandlersArguments e)
@@ -96,22 +99,54 @@ public static class ModKeyManager
         RegisterKeyPressHandlers?.Invoke(null, e);
     }
 
-    public class RegisterKeyPressHandlersArguments
+    /// <summary>
+    ///     Registers key ignore conflicts for all registered handlers.
+    ///     This method registers conflicts where other keys should ignore our mod keys.
+    /// </summary>
+    private static void RegisterKeyConflicts()
     {
-        public void AddKey(KeyPressHandler handler, ControlsGroup controlsGroup)
+        foreach (var handler in Keys)
         {
-            handler.AddKey(controlsGroup);
-            Keys.Add(handler);
-        }
+            var keyConflicts = handler.GetKeyConflicts();
+            if (keyConflicts == null) continue;
 
-        public ControlsGroup AddControlsGroup(string name)
+            var conflictList = keyConflicts.ToList();
+            if (conflictList.Count == 0) continue;
+
+            Plugin.Log.LogDebug($"Registering reverse conflicts for {handler.Name}: {string.Join(", ", conflictList)}");
+
+            foreach (var conflictKey in conflictList)
+                // Register that conflictKey should ignore handler.Name (conflictKey takes precedence)
+                RegisterConflicts(conflictKey, handler.Name);
+        }
+    }
+
+    /// <summary>
+    ///     Registers ignored conflicts for all registered key handlers.
+    ///     This method registers conflicts where our mod keys should ignore other keys.
+    /// </summary>
+    private static void RegisterIgnoredConflicts()
+    {
+        foreach (var handler in Keys)
         {
-            var controlsGroup = ControlsGroup.AllControlGroups.FirstOrDefault(x => x.Name == name);
-            if (controlsGroup != null)
-                return controlsGroup;
+            var ignoredConflicts = handler.GetIgnoredConflicts()?.ToArray();
+            if (ignoredConflicts == null) continue;
 
-            Plugin.Log.LogInfo($"Adding new controls group {name}");
-            return new ControlsGroup(name);
+            Plugin.Log.LogDebug(
+                $"Registering ignored conflicts for {handler.Name}: {string.Join(", ", ignoredConflicts)}");
+
+            RegisterConflicts(handler.Name, ignoredConflicts);
         }
+    }
+
+    /// <summary>
+    ///     Registers conflicts for a given key name with the provided conflicting keys.
+    /// </summary>
+    /// <param name="keyName">The name of the key to register conflicts for</param>
+    /// <param name="conflictKeys">The keys that conflict with the main key</param>
+    private static void RegisterConflicts(string keyName, params string[] conflictKeys)
+    {
+        if (!KeyManager.IgnoreConflictKeyMaps.TryAdd(keyName, conflictKeys.ToList()))
+            KeyManager.IgnoreConflictKeyMaps[keyName].AddRange(conflictKeys);
     }
 }

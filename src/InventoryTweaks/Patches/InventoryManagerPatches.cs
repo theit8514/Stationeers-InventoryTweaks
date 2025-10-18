@@ -2,6 +2,7 @@
 using Assets.Scripts.Objects;
 using Assets.Scripts.UI;
 using HarmonyLib;
+using InventoryTweaks.Core;
 
 namespace InventoryTweaks.Patches;
 
@@ -18,7 +19,7 @@ internal class InventoryManagerPatches
     [HarmonyPriority(2000)]
     public static bool SmartStow_Prefix(Slot selectedSlot)
     {
-        NewInventoryManager.SmartStow(selectedSlot);
+        CustomInventoryManager.SmartStow(selectedSlot);
         return false;
     }
 
@@ -26,7 +27,7 @@ internal class InventoryManagerPatches
     [HarmonyPatch(typeof(InventoryWindowManager), "SinglePressInteraction")]
     public static bool SinglePressInteraction_Prefix()
     {
-        return !NewInventoryManager.BeforeSinglePressInteraction(InventoryWindowManager.CurrentScollButton);
+        return !CustomInventoryManager.BeforeSinglePressInteraction(InventoryWindowManager.CurrentScollButton);
     }
 
     [HarmonyPrefix]
@@ -37,7 +38,7 @@ internal class InventoryManagerPatches
         if (sourceSlot?.Get() == null || destination == null)
             return true;
 
-        if (NewInventoryManager.AllowSwap(sourceSlot, destination) == false)
+        if (CustomInventoryManager.AllowSwap(sourceSlot, destination) == false)
         {
             __result = false;
             return false;
@@ -54,7 +55,7 @@ internal class InventoryManagerPatches
         if (sourceSlot?.Get() == null || destinationSlot?.Get() == null)
             return true;
 
-        if (NewInventoryManager.AllowSwap(sourceSlot, destinationSlot) == false)
+        if (CustomInventoryManager.AllowSwap(sourceSlot, destinationSlot) == false)
         {
             __result = false;
             return false;
@@ -71,7 +72,7 @@ internal class InventoryManagerPatches
         if (thing == null || destinationSlot == null)
             return true;
 
-        if (NewInventoryManager.AllowMove(thing, destinationSlot) == false)
+        if (CustomInventoryManager.AllowMove(thing, destinationSlot) == false)
         {
             __result = false;
             return false;
@@ -90,7 +91,7 @@ internal class InventoryManagerPatches
     // ReSharper disable once InconsistentNaming
     public static bool PlayerMoveToSlot_Prefix(Slot __instance, DynamicThing thingToMove)
     {
-        return NewInventoryManager.BeforePlayerMoveToSlot(__instance, thingToMove);
+        return CustomInventoryManager.BeforePlayerMoveToSlot(__instance, thingToMove);
     }
 
     /// <summary>
@@ -108,9 +109,9 @@ internal class InventoryManagerPatches
     [HarmonyPatch(typeof(Thing), nameof(Thing.CanEnter), typeof(Slot))]
     // ReSharper disable InconsistentNaming
     public static bool CanEnter_Prefix(Thing __instance, ref CanEnterResult __result, Slot destinationSlot)
-    // ReSharper restore InconsistentNaming
+        // ReSharper restore InconsistentNaming
     {
-        var result = NewInventoryManager.BeforeCanEnter(__instance, destinationSlot);
+        var result = CustomInventoryManager.BeforeCanEnter(__instance, destinationSlot);
         // If the result is null, use the default behavior.
         if (result is null)
             return true;

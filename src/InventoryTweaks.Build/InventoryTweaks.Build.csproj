@@ -1,0 +1,111 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net47</TargetFramework>
+        <AssemblyName>InventoryTweaks.Build</AssemblyName>
+        <Description>MSBuild targets for InventoryTweaks mod packaging and deployment</Description>
+        <LangVersion>latest</LangVersion>
+        <OutputType>Library</OutputType>
+        <NoWarn>CS2008</NoWarn>
+    </PropertyGroup>
+
+    <!-- Import Stationeers VS properties - paths etc. -->
+    <Import Project="../../Stationeers.VS.props"/>
+
+    <ItemGroup>
+        <ProjectReference Include="..\InventoryTweaks\InventoryTweaks.csproj"/>
+    </ItemGroup>
+
+    <!-- Include mod folder contents -->
+    <ItemGroup>
+        <Content Include="InventoryTweaks\**\*" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+    <!-- Track changes to About.xml -->
+    <ItemGroup>
+        <UpToDateCheckInput Include="InventoryTweaks\About\About.xml"/>
+        <UpToDateCheckInput Include="..\..\README.md"/>
+        <UpToDateCheckInput Include="..\..\LICENSE.md"/>
+    </ItemGroup>
+
+    <!-- Build targets -->
+    <Target Name="UpdateVersion" BeforeTargets="Build">
+        <PropertyGroup>
+            <AboutXmlPath>$(MSBuildThisFileDirectory)InventoryTweaks\About\About.xml</AboutXmlPath>
+            <UpdateScriptPath>$(MSBuildThisFileDirectory)..\..\scripts\update-version.ps1</UpdateScriptPath>
+        </PropertyGroup>
+
+        <Exec Command="pwsh -File &quot;$(UpdateScriptPath)&quot; -AboutXmlPath &quot;$(AboutXmlPath)&quot; -Version &quot;$(Version)&quot;"
+              Condition="Exists('$(UpdateScriptPath)') AND Exists('$(AboutXmlPath)')"/>
+
+        <Message Text="Updated About.xml version to $(Version)" Importance="high"/>
+    </Target>
+
+    <Target Name="CopyBuildArtifacts" AfterTargets="Build">
+        <PropertyGroup>
+            <SourceDll>$(MSBuildThisFileDirectory)..\InventoryTweaks\bin\$(Configuration)\net47\InventoryTweaks.dll</SourceDll>
+            <SourcePdb>$(MSBuildThisFileDirectory)..\InventoryTweaks\bin\$(Configuration)\net47\InventoryTweaks.pdb</SourcePdb>
+            <TargetDir>$(MSBuildThisFileDirectory)InventoryTweaks\</TargetDir>
+        </PropertyGroup>
+
+        <Copy SourceFiles="$(SourceDll)" DestinationFolder="$(TargetDir)" Condition="Exists('$(SourceDll)')"/>
+        <Copy SourceFiles="$(SourcePdb)" DestinationFolder="$(TargetDir)" Condition="Exists('$(SourcePdb)')"/>
+
+        <Message Text="Copied build artifacts to mod directory" Importance="high"/>
+    </Target>
+
+    <Target Name="CopyDocumentation" AfterTargets="CopyBuildArtifacts">
+        <PropertyGroup>
+            <TargetDir>$(MSBuildThisFileDirectory)InventoryTweaks\</TargetDir>
+        </PropertyGroup>
+
+        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\README.md"
+              DestinationFolder="$(TargetDir)"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\README.md')"/>
+
+        <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\LICENSE.md"
+              DestinationFolder="$(TargetDir)"
+              Condition="Exists('$(MSBuildThisFileDirectory)..\..\LICENSE.md')"/>
+
+        <Message Text="Copied documentation files to mod directory" Importance="high"/>
+    </Target>
+
+    <Target Name="CreateReleasePackage" AfterTargets="CopyDocumentation" Condition="'$(Configuration)'=='Release'">
+        <PropertyGroup>
+            <BuildDir>$(MSBuildThisFileDirectory)..\..\build</BuildDir>
+            <ModDir>$(MSBuildThisFileDirectory)InventoryTweaks</ModDir>
+            <ZipFile>$(BuildDir)\InventoryTweaks-$(Version).zip</ZipFile>
+        </PropertyGroup>
+
+        <MakeDir Directories="$(BuildDir)"/>
+
+        <ZipDirectory SourceDirectory="$(ModDir)"
+                      DestinationFile="$(ZipFile)"
+                      Overwrite="true"/>
+
+        <Message Text="Created release package: $(ZipFile)" Importance="high"/>
+    </Target>
+
+    <Target Name="PostBuild" AfterTargets="CopyDocumentation" Condition="$([System.OperatingSystem]::IsWindows())">
+        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir /P &quot;$(ModDirectory)\InventoryTweaks&quot;"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="xcopy &quot;$(MSBuildThisFileDirectory)InventoryTweaks\*&quot; &quot;$(ModDirectory)\InventoryTweaks&quot; /E /F /Y"/>
+        <Exec Condition="'$(ModDirectory)' == ''"
+              Command="xcopy &quot;$(MSBuildThisFileDirectory)InventoryTweaks\InventoryTweaks.dll&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
+        <Exec Condition="'$(ModDirectory)' == ''"
+              Command="xcopy &quot;$(MSBuildThisFileDirectory)InventoryTweaks\InventoryTweaks.pdb&quot; &quot;$(StationeersDirectory)\BepInEx\plugins\&quot; /F /Y "/>
+
+        <Message Text="Deployed to mod directory: $(ModDirectory)" Importance="high"/>
+    </Target>
+
+    <Target Name="PostBuild" AfterTargets="CopyDocumentation" Condition="$([System.OperatingSystem]::IsLinux())">
+        <Exec Condition="'$(ModDirectory)' != ''" Command="mkdir -p '$(ModDirectory)/InventoryTweaks'"/>
+        <Exec Condition="'$(ModDirectory)' != ''" Command="cp -r '$(MSBuildThisFileDirectory)InventoryTweaks/'* '$(ModDirectory)/InventoryTweaks'"/>
+        <Exec Condition="'$(ModDirectory)' == ''"
+              Command="cp '$(MSBuildThisFileDirectory)InventoryTweaks/InventoryTweaks.dll' '$(StationeersDirectory)/BepInEx/plugins/'"/>
+        <Exec Condition="'$(ModDirectory)' == ''"
+              Command="cp '$(MSBuildThisFileDirectory)InventoryTweaks/InventoryTweaks.pdb' '$(StationeersDirectory)/BepInEx/plugins/'"/>
+
+        <Message Text="Deployed to mod directory: $(ModDirectory)" Importance="high"/>
+    </Target>
+
+</Project>

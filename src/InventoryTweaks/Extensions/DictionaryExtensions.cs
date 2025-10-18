@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace InventoryTweaks.Helpers;
+namespace InventoryTweaks.Extensions;
 
 public static class DictionaryExtensions
 {

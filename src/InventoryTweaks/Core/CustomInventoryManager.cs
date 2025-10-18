@@ -8,11 +8,14 @@ using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
 using HarmonyLib;
+using InventoryTweaks.Data;
 using InventoryTweaks.Helpers;
+using InventoryTweaks.Localization;
+using InventoryTweaks.Utilities;
 
-namespace InventoryTweaks;
+namespace InventoryTweaks.Core;
 
-public static class NewInventoryManager
+public static class CustomInventoryManager
 {
     public static readonly InventoryTweaksData Data = new();
 
@@ -27,7 +30,7 @@ public static class NewInventoryManager
     private static readonly Traverse PerformHiddenSlotMoveToAnimation;
     private static readonly Traverse IsValid;
 
-    static NewInventoryManager()
+    static CustomInventoryManager()
     {
         var traverse = Traverse.Create(typeof(InventoryManager));
         FindFreeSlotOpenWindowsSlotPriority =
@@ -238,7 +241,9 @@ public static class NewInventoryManager
     ///     <see langword="true" /> if the stack still remains, or <see langword="false" /> if the slot was processed
     ///     completely.
     /// </returns>
-    private static bool DoubleClickMoveStackable(Slot selectedSlot, Stackable stack, IEnumerable<SlotData> targetSlots)
+    private static bool DoubleClickMoveStackable(Slot selectedSlot,
+        Stackable stack,
+        IEnumerable<SlotWrapper> targetSlots)
     {
         // If the selected item is in our hand, try to fill the inventory first
         if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
@@ -295,7 +300,7 @@ public static class NewInventoryManager
     /// </summary>
     /// <param name="selectedSlot"></param>
     /// <param name="targetSlots"></param>
-    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotData[] targetSlots)
+    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots)
     {
         var thing = selectedSlot.Get();
         Slot targetSlot = null;
@@ -385,14 +390,14 @@ public static class NewInventoryManager
         return true;
     }
 
-    private static IEnumerable<SlotData> GetTargetSlotsOrdered(DynamicThing thing)
+    private static IEnumerable<SlotWrapper> GetTargetSlotsOrdered(DynamicThing thing)
     {
         var prefabHash = thing.GetPrefabHash();
         var slotLookup = Data.ToLookup();
         var humanInventorySlots = FindSlotsOfHuman(ExcludeHandSlots);
         var allHumanSlots = humanInventorySlots
             .SelectMany(RecurseSlots)
-            .Select(slot => BuildSlotData(slot, slotLookup))
+            .Select(slot => BuildSlotWrapper(slot, slotLookup))
             .ToArray();
         var sortedSlots = allHumanSlots
             .Where(x => x.IsOfSlotTypeOrNoneType(thing.SlotType)) // Only allow slots of this type or none type
@@ -411,10 +416,10 @@ public static class NewInventoryManager
         return sortedSlots;
     }
 
-    private static SlotData BuildSlotData(Slot slot, Lookup<long, int, ILockedSlot> lookup)
+    private static SlotWrapper BuildSlotWrapper(Slot slot, Lookup<long, int, ILockedSlot> lookup)
     {
         var lockedSlotTuple = lookup[slot.Parent.ReferenceId, slot.SlotIndex].FirstOrDefault();
-        return new SlotData(slot, lockedSlotTuple);
+        return new SlotWrapper(slot, lockedSlotTuple);
     }
 
     private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
@@ -561,43 +566,5 @@ public static class NewInventoryManager
         Plugin.Log.LogDebug(
             $"CanEnter failed: source item {thing.GetPassiveTooltip(null).Title} cannot move to {SlotHelper.GetSlotDisplayName(destinationSlot)}");
         return CanEnterResult.Fail(CustomGameStrings.DestinationLockedSlot.AsString(displayNameTarget ?? "{Unknown}"));
-    }
-
-    private class SlotData
-    {
-        private readonly ILockedSlot _lockedSlot;
-
-        public SlotData(Slot slot, ILockedSlot lockedSlotTuple)
-        {
-            Slot = slot;
-            _lockedSlot = lockedSlotTuple;
-        }
-
-        public Slot Slot { get; }
-        public InventoryWindow Window => Slot.Display?.SlotWindow;
-        public bool IsVisible => Window?.IsVisible ?? false;
-        public DynamicThing Occupant => Slot.Get();
-        public bool IsOccupied => Occupant != null;
-        public int OccupantPrefabHash => Occupant.PrefabHash;
-        public Stackable Stackable => Occupant as Stackable;
-        public bool IsStackable => Stackable != null;
-        public bool IsLocked => _lockedSlot != null;
-        public int LockedToPrefabHash => _lockedSlot.PrefabHash;
-
-        public bool IsOfSlotTypeOrNoneType(Slot.Class occupantType)
-        {
-            return IsOfSlotType(occupantType) ||
-                   Slot.Type == Slot.Class.None;
-        }
-
-        public bool IsOfSlotType(Slot.Class occupantType)
-        {
-            return Slot.Type == occupantType;
-        }
-
-        public bool IsLockedToOrNotLocked(int prefabHash)
-        {
-            return !IsLocked || LockedToPrefabHash == prefabHash;
-        }
     }
 }

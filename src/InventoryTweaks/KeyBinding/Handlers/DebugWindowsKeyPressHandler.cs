@@ -2,7 +2,7 @@
 using Assets.Scripts.UI;
 using UnityEngine;
 
-namespace InventoryTweaks.Handlers;
+namespace InventoryTweaks.KeyBinding.Handlers;
 
 public class DebugWindowsKeyPressHandler : KeyPressHandler
 {
