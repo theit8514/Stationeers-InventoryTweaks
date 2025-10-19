@@ -2,7 +2,7 @@
     <!-- Shared properties for all projects in the solution -->
     <PropertyGroup>
         <!-- Update version here and build. Then update About.xml with changelog message -->
-        <Version>0.4.5</Version>
+        <Version>0.4.6</Version>
         <AssemblyVersion>$(Version)</AssemblyVersion>
         <FileVersion>$(Version)</FileVersion>
         <InformationalVersion>$(Version)</InformationalVersion>

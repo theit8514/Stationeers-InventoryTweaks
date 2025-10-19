@@ -2,7 +2,8 @@
 <ModMetadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.5</Version>
+    <Version>0.4.6</Version>
+    <!-- Don't update this version manually, it is updated by the build process -->
     <Description><![CDATA[[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
         [h2]Requirements[/h2]
@@ -20,6 +21,13 @@
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     ]]></Description>
     <ChangeLog><![CDATA[
+        0.4.6:
+        - Added slot exclusion config to prevent potential dangerous SmartStow operations (e.g. IC-10 chips into Hardsuit/HARM suit chip slots)
+        - Added Stow+Swap operation for when hands are full, allowing quickly swapping tools to active hand
+        - Added in-game message when preventing store or swap operations when target or source slot is locked
+        - Fixed slot ordering on window open/close to prevent "jumping" of the selected slot cursor
+        - Fixed slot names in log for better debugging
+
         0.4.5:
         - Fixed new save not creating directory structure
 
