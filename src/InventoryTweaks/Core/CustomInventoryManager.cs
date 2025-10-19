@@ -61,8 +61,19 @@ public static class CustomInventoryManager
                 .ToArray();
 
             // If the item is stackable, run our stackable code.
-            if (selectedThing is Stackable stack && !DoubleClickMoveStackable(selectedSlot, stack, targetSlots))
-                return false;
+            if (selectedThing is Stackable stack)
+            {
+                var stackableResult = DoubleClickMoveStackable(selectedSlot, stack, targetSlots);
+                if (!stackableResult)
+                {
+                    // All stackable items were processed successfully
+                    return true;
+                }
+
+                // If there are remaining stackable items, fall through to normal hand logic
+                Plugin.Log.LogInfo(
+                    $"Still have {stack.Quantity} stackable items remaining, falling through to normal hand logic");
+            }
 
             // If this is the hand slot, move to inventory only
             if (InventoryManager.LeftHandSlot.Get() == selectedThing ||
@@ -107,7 +118,9 @@ public static class CustomInventoryManager
 
             // If both hands are full, stow the active hand and swap the item to it.
             if (activeHand != null && activeHandThing != null &&
-                inactiveHand != null && inactiveHandThing != null)
+                inactiveHand != null && inactiveHandThing != null &&
+                // Skip this for stackable items which should not be stow+swapped after stacking
+                !(selectedThing is Stackable))
             {
                 Plugin.Log.LogDebug("Swap+Stow to active hand");
                 var stowResult = StowAndSwap(selectedSlot, activeHand);
@@ -234,12 +247,12 @@ public static class CustomInventoryManager
     ///     Handles a stackable item that was double clicked. This will attempt to find items of the
     ///     same stackable type and fill those slots.
     /// </summary>
-    /// <param name="selectedSlot"></param>
-    /// <param name="stack"></param>
-    /// <param name="targetSlots"></param>
+    /// <param name="selectedSlot">The slot containing the stackable item to be moved</param>
+    /// <param name="stack">The stackable item being moved</param>
+    /// <param name="targetSlots">Available target slots for stacking</param>
     /// <returns>
-    ///     <see langword="true" /> if the stack still remains, or <see langword="false" /> if the slot was processed
-    ///     completely.
+    ///     <see langword="true" /> if there are remaining items that need further processing,
+    ///     or <see langword="false" /> if all items have been successfully processed.
     /// </returns>
     private static bool DoubleClickMoveStackable(Slot selectedSlot,
         Stackable stack,
@@ -290,8 +303,22 @@ public static class CustomInventoryManager
         }
 
         // Try to fill hand slots with this item
-        return FillHandSlot(InventoryManager.LeftHandSlot, selectedSlot, stack) &&
-               FillHandSlot(InventoryManager.RightHandSlot, selectedSlot, stack);
+        // Try both hands regardless of individual results, as FillHandSlot returns false on success
+        FillHandSlot(InventoryManager.LeftHandSlot, selectedSlot, stack);
+        if (stack.Quantity <= 0)
+            return false; // All items processed successfully, stop processing
+        Plugin.Log.LogInfo($"Still have {stack.Quantity} items remaining after filling left hand, trying right hand");
+        FillHandSlot(InventoryManager.RightHandSlot, selectedSlot, stack);
+
+        // If we still have items remaining after trying both hands, return true to continue processing
+        if (stack.Quantity > 0)
+        {
+            Plugin.Log.LogInfo(
+                $"Still have {stack.Quantity} items remaining after trying both hands, continuing with other logic");
+            return true; // Return true to continue processing
+        }
+
+        return false; // All items processed successfully, stop processing
     }
 
     /// <summary>
@@ -422,17 +449,17 @@ public static class CustomInventoryManager
         return new SlotWrapper(slot, lockedSlotTuple);
     }
 
-    private static bool FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
+    private static void FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
     {
         Plugin.Log.LogDebug(
             $"Hand {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
         if (targetSlot.Get() == null ||
             targetSlot.Get() == selectedSlot.Get())
-            return true;
+            return;
 
         var targetStack = targetSlot.Get() as Stackable;
         if (targetStack == null || !targetStack.CanStack(stack))
-            return true;
+            return;
 
         // Merge the items into the target stack.
         Plugin.Log.LogInfo(
@@ -443,8 +470,6 @@ public static class CustomInventoryManager
 
         if (stack.Quantity <= 0)
             UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
-
-        return false;
     }
 
     private static IEnumerable<Slot> FindSlotsOfHuman(ICollection<InteractableType> excludeTypes)
