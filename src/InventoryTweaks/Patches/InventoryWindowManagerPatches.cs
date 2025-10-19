@@ -34,4 +34,32 @@ internal class InventoryWindowManagerPatches
         if (string.IsNullOrEmpty(parentSlot.StringKey))
             __instance.name = $"Window {parentSlot.Get()?.DisplayName}";
     }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(InventoryWindowManager), "OrderVisibleSlots")]
+    public static bool OrderVisibleSlots_Prefix(
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        InventoryWindowManager __instance,
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        ref SlotDisplayButton __state)
+    {
+        // Store the current scroll button before reordering
+        __state = InventoryWindowManager.CurrentScollButton;
+
+        // Let the original method run
+        return true;
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(InventoryWindowManager), "OrderVisibleSlots")]
+    public static void OrderVisibleSlots_Postfix(
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        InventoryWindowManager __instance,
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        SlotDisplayButton __state)
+    {
+        // After reordering, try to restore the selection
+        if (__state?.Slot != null)
+            __instance.TryUpdateSelectedInventorySlot(__state.Slot);
+    }
 }
