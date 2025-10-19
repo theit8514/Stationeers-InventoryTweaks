@@ -1,4 +1,5 @@
-﻿using Assets.Scripts.Objects;
+﻿using System.Diagnostics.CodeAnalysis;
+using Assets.Scripts.Objects;
 using Assets.Scripts.UI;
 using HarmonyLib;
 
@@ -9,9 +10,11 @@ internal class InventoryWindowManagerPatches
     [HarmonyPrefix]
     [HarmonyPatch(typeof(InventoryWindow))]
     [HarmonyPatch(nameof(InventoryWindow.SetVisible))]
-    // ReSharper disable once InconsistentNaming
-    // ReSharper disable once IdentifierTypo
-    public static void SetVisible_Prefix(InventoryWindow __instance, bool isVisble)
+    public static void SetVisible_Prefix(
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        InventoryWindow __instance,
+        [SuppressMessage("ReSharper", "IdentifierTypo")]
+        bool isVisble)
     {
         // This fixes the phantom window issue. The layout will render all items that are active.
         // If we mark this game object as inactive, it will no longer be rendered in the layout.
@@ -22,9 +25,10 @@ internal class InventoryWindowManagerPatches
     [HarmonyPrefix]
     [HarmonyPatch(typeof(InventoryWindow))]
     [HarmonyPatch(nameof(InventoryWindow.Assign))]
-    // ReSharper disable once InconsistentNaming
-    // ReSharper disable once IdentifierTypo
-    public static void Assign(InventoryWindow __instance, Slot parentSlot)
+    public static void Assign(
+        [SuppressMessage("ReSharper", "InconsistentNaming")]
+        InventoryWindow __instance,
+        Slot parentSlot)
     {
         // Minor fix to window names, used for debugging windows.
         if (string.IsNullOrEmpty(parentSlot.StringKey))
