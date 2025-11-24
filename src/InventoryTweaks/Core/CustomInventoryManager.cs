@@ -12,6 +12,7 @@ using InventoryTweaks.Data;
 using InventoryTweaks.Helpers;
 using InventoryTweaks.Localization;
 using InventoryTweaks.Utilities;
+using Reagents;
 
 namespace InventoryTweaks.Core;
 
@@ -60,19 +61,37 @@ public static class CustomInventoryManager
             var targetSlots = GetTargetSlotsOrdered(selectedThing)
                 .ToArray();
 
-            // If the item is stackable, run our stackable code.
-            if (selectedThing is Stackable stack)
+            switch (selectedThing)
             {
-                var stackableResult = DoubleClickMoveStackable(selectedSlot, stack, targetSlots);
-                if (!stackableResult)
+                // If the item is Slag (e.g. Reagent Mix), only merge to matching reagent mixes.
+                case Slag slag:
                 {
-                    // All stackable items were processed successfully
-                    return true;
-                }
+                    var reagentMergeResult = MergeSlag(slag, targetSlots);
+                    if (!reagentMergeResult)
+                    {
+                        // Reagent mix was merged successfully.
+                        return true;
+                    }
 
-                // If there are remaining stackable items, fall through to normal hand logic
-                Plugin.Log.LogInfo(
-                    $"Still have {stack.Quantity} stackable items remaining, falling through to normal hand logic");
+                    Plugin.Log.LogInfo(
+                        $"Still have {slag.Quantity} Reagent Mix remaining, falling through to normal hand logic");
+                    break;
+                }
+                // If the item is stackable, run our stackable code.
+                case Stackable stack:
+                {
+                    var stackableResult = DoubleClickMoveStackable(selectedSlot, stack, targetSlots);
+                    if (!stackableResult)
+                    {
+                        // All stackable items were processed successfully
+                        return true;
+                    }
+
+                    // If there are remaining stackable items, fall through to normal hand logic
+                    Plugin.Log.LogInfo(
+                        $"Still have {stack.Quantity} stackable items remaining, falling through to normal hand logic");
+                    break;
+                }
             }
 
             // If this is the hand slot, move to inventory only
@@ -414,6 +433,43 @@ public static class CustomInventoryManager
         OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
         InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(targetSlot);
         UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
+        return true;
+    }
+
+    /// <summary>
+    ///     Merge a Reagent Mix to any slot with matching ingredients
+    /// </summary>
+    /// <param name="slag">The Reagent Mix to be merged</param>
+    /// <param name="targetSlots">The available target slots for merging</param>
+    /// <returns>
+    ///     <see langword="true" /> if there are remaining items that need further processing,
+    ///     or <see langword="false" /> if all items have been successfully processed.
+    /// </returns>
+    private static bool MergeSlag(Slag slag, SlotWrapper[] targetSlots)
+    {
+        var ingredients = slag.CreatedReagentMixture.ToIngredientList().Select(x => x.ReagentName);
+        Plugin.Log.LogInfo($"Attempting to merge Reagent Mix with ingredients {string.Join(", ", ingredients)}");
+        // Get a recipe based on the slag mix
+        var recipe = new Recipe(slag.CreatedReagentMixture, 30, 30);
+        // Get slots that contain slag.
+        var targetSlagSlots = (from slot in targetSlots
+            let targetSlag = slot.Occupant as Slag
+            where targetSlag != null && targetSlag.CreatedReagentMixture.Equals(recipe)
+            select new { slot.Slot, Target = targetSlag }).ToArray();
+        Plugin.Log.LogDebug($"Found {targetSlagSlots.Length} slots that contain matching Reagent Mix");
+        if (targetSlagSlots.Length == 0)
+            return true;
+
+        foreach (var targetSlagSlot in targetSlagSlots)
+        {
+            var targetSlag = targetSlagSlot.Target;
+            Plugin.Log.LogDebug($"Merging with slot {SlotHelper.GetSlotDisplayName(targetSlagSlot.Slot)}");
+            // Merge the slag into the target slag.
+            OnServer.Merge(targetSlag, slag);
+            if (slag.Quantity <= 0)
+                return false;
+        }
+
         return true;
     }
 
