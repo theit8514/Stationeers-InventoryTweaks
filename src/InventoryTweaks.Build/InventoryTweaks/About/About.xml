@@ -2,7 +2,7 @@
 <ModMetadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.6</Version>
+    <Version>0.4.7</Version>
     <!-- Don't update this version manually, it is updated by the build process -->
     <Description><![CDATA[[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
