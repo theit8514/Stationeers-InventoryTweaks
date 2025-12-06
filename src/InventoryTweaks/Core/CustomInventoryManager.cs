@@ -57,9 +57,17 @@ public static class CustomInventoryManager
             return false;
         try
         {
+            Plugin.Log.LogInfo(
+                $"Smart Stow: Processing item '{selectedThing.DisplayName}' ({selectedThing.PrefabName})");
             Plugin.Log.LogDebug($"Handling SmartStow request for {SlotHelper.GetSlotDisplayName(selectedSlot)}");
             var targetSlots = GetTargetSlotsOrdered(selectedThing)
                 .ToArray();
+            Plugin.Log.LogInfo($"Target slots list ({targetSlots.Length} slots):");
+            foreach (var slot in targetSlots)
+            {
+                Plugin.Log.LogInfo(
+                    $"  - {SlotHelper.GetSlotDisplayName(slot.Slot)} (Locked: {slot.IsLocked}, Occupied: {slot.IsOccupied}, Visible: {slot.IsVisible})");
+            }
 
             switch (selectedThing)
             {
@@ -341,18 +349,18 @@ public static class CustomInventoryManager
     }
 
     /// <summary>
-    ///     Handles a normal item being moved using double click. Looks up where the item was originally
-    ///     stored and tries to place it in that slot. Otherwise, continue normal slot processing.
+    ///     Finds a suitable target slot for an item, trying multiple strategies in order.
     /// </summary>
-    /// <param name="selectedSlot"></param>
-    /// <param name="targetSlots"></param>
-    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots)
+    /// <param name="thing">The item to find a slot for</param>
+    /// <param name="targetSlots">The list of potential target slots</param>
+    /// <returns>The selected target slot, or null if no suitable slot was found</returns>
+    private static Slot FindTargetSlot(DynamicThing thing, SlotWrapper[] targetSlots)
     {
-        var thing = selectedSlot.Get();
-        Slot targetSlot = null;
-        // Find this Thing reference in the original slots dictionary.
+        // Strategy 1: Try to return to original slot
         if (OriginalSlots.TryGetValue(thing.ReferenceId, out var originalSlot))
         {
+            // Always clear the slot data so that we don't leave the reference around
+            OriginalSlots.Remove(thing.ReferenceId);
             Plugin.Log.LogInfo(
                 $"Returning {thing.DisplayName} to original {SlotHelper.GetSlotDisplayName(originalSlot)}");
             // Checks to ensure that we can move this item back to this slot:
@@ -368,72 +376,95 @@ public static class CustomInventoryManager
             else if (targetSlots.All(x => !ReferenceEquals(x.Slot, originalSlot)))
                 Plugin.Log.LogWarning("Original slot is not a valid target");
             else
-                // Set the target slot to the original slot
-                targetSlot = originalSlot;
-
-            // Always clear the slot data so that we don't leave the reference around
-            OriginalSlots.Remove(thing.ReferenceId);
-        }
-
-        if (targetSlot == null)
-        {
-            Plugin.Log.LogInfo($"Finding slot for {thing.DisplayName}");
-            // Find slot that is not occupied.
-            foreach (var slot in targetSlots.Where(x => !x.IsOccupied))
             {
-                Plugin.Log.LogInfo(
-                    $"{SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}");
-                if (slot.IsLocked && slot.LockedToPrefabHash != thing.PrefabHash)
-                    continue;
-
-                targetSlot = slot.Slot;
-                break;
+                Plugin.Log.LogInfo($"Selected target slot (original) - {SlotHelper.GetSlotDisplayName(originalSlot)}");
+                Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(originalSlot)}");
+                return originalSlot;
             }
         }
 
-        if (targetSlot == null && targetSlots.All(x => x.IsOccupied || x.IsLocked))
+        // Strategy 2: Find an unoccupied slot from the target slots list
+        foreach (var slot in targetSlots.Where(x => !x.IsOccupied))
         {
-            ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked",
-                aged: false);
-            UIAudioManager.Play(UIAudioManager.ActionFailHash);
-            return false;
+            if (slot.IsLocked && slot.LockedToPrefabHash != thing.PrefabHash)
+                continue;
+
+            Plugin.Log.LogInfo($"Selected target slot - {SlotHelper.GetSlotDisplayName(slot.Slot)}");
+            Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(slot.Slot)}");
+            return slot.Slot;
         }
 
-        // This code is largely unchanged from the base code, except for the ordering of operations.
-        // If we didn't find the original slot, find a free slot of this type or a slot from the open inventory.
-        targetSlot ??= InventoryManager.ParentHuman.GetFreeSlot(thing.SlotType, ExcludeHandSlots) ??
+        // Strategy 3: Find a free slot from the human or open inventory windows
+        var freeSlot = InventoryManager.ParentHuman.GetFreeSlot(thing.SlotType, ExcludeHandSlots) ??
                        FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(thing.SlotType, true);
-        if (targetSlot == null)
-            // If the slot was not found, find the next available slot in the main slots.
+        if (freeSlot != null)
         {
-            foreach (var slot in InventoryManager.ParentHuman.Slots)
+            Plugin.Log.LogInfo($"Selected target slot (free slot) - {SlotHelper.GetSlotDisplayName(freeSlot)}");
+            Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(freeSlot)}");
+            return freeSlot;
+        }
+
+        // Strategy 4: Find a nested slot in items within the human's inventory
+        foreach (var slot in InventoryManager.ParentHuman.Slots)
+        {
+            if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Get() == null)
+                continue;
+
+            var nestedFreeSlot = slot.Get().GetFreeSlot(thing.SlotType);
+            if (nestedFreeSlot == null)
+                continue;
+
+            Plugin.Log.LogInfo($"Selected target slot (nested) - {SlotHelper.GetSlotDisplayName(nestedFreeSlot)}");
+            Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(nestedFreeSlot)}");
+
+            // Only animate if the nested slot is not visible (hidden inside a closed inventory window)
+            // This provides visual feedback on the parent slot when moving to a hidden nested slot
+            if (nestedFreeSlot.Display?.SlotWindow?.IsVisible != true)
             {
-                if (slot == null || ExcludeHandSlots.Contains(slot.Action) || slot.Get() == null)
-                    continue;
-
-                var freeSlot = slot.Get().GetFreeSlot(thing.SlotType);
-                if (freeSlot == null)
-                    continue;
-
-                targetSlot = freeSlot;
                 InventoryManager.Instance.StartCoroutine(
-                    PerformHiddenSlotMoveToAnimation.GetValue<IEnumerator>(slot, selectedSlot,
+                    PerformHiddenSlotMoveToAnimation.GetValue<IEnumerator>(slot, thing.ParentSlot,
                         thing));
-                break;
             }
+
+            return nestedFreeSlot;
         }
 
-        if (targetSlot == null)
+        return null;
+    }
+
+    /// <summary>
+    ///     Handles a normal item being moved using double click. Looks up where the item was originally
+    ///     stored and tries to place it in that slot. Otherwise, continue normal slot processing.
+    /// </summary>
+    /// <param name="selectedSlot"></param>
+    /// <param name="targetSlots"></param>
+    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots)
+    {
+        var thing = selectedSlot.Get();
+        var targetSlot = FindTargetSlot(thing, targetSlots);
+
+        switch (targetSlot)
         {
-            UIAudioManager.Play(UIAudioManager.ActionFailHash);
-            return false;
+            case null when targetSlots.All(x => x.IsOccupied || x.IsLocked):
+                Plugin.Log.LogWarning(
+                    $"Cannot place '{thing.DisplayName}' ({thing.PrefabName}) - all target slots are occupied or locked");
+                ConsoleWindow.Print($"Can't place '{thing.DisplayName}' in inventory, all slots are occupied or locked",
+                    aged: false);
+                break;
+            case null:
+                Plugin.Log.LogWarning(
+                    $"Cannot place '{thing.DisplayName}' ({thing.PrefabName}) - no suitable target slot found after searching all available options");
+                break;
+            default:
+                InventoryManager.Instance.CheckCancelMultiConstructor();
+                OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
+                InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(targetSlot);
+                UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
+                return true;
         }
 
-        InventoryManager.Instance.CheckCancelMultiConstructor();
-        OnServer.MoveToSlot(selectedSlot.Get(), targetSlot);
-        InventoryWindowManager.Instance.TryUpdateSelectedInventorySlot(targetSlot);
-        UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
-        return true;
+        UIAudioManager.Play(UIAudioManager.ActionFailHash);
+        return false;
     }
 
     /// <summary>
@@ -493,9 +524,6 @@ public static class CustomInventoryManager
             .ThenByDescending(x => x.IsOfSlotType(thing.SlotType)) // Then by slots of this type
             .ThenBy(x => !x.IsOccupied) // Then by non-occupied slots
             .ToArray();
-        Plugin.Log.LogInfo("Slots: \r\n" + string.Join("\r\n",
-            sortedSlots.Select(slot =>
-                $"{SlotHelper.GetSlotDisplayName(slot.Slot)} {slot.IsLocked} {slot.IsOccupied} {slot.IsVisible}")));
         return sortedSlots;
     }
 
