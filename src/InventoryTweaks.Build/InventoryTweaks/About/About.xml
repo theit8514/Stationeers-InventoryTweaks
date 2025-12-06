@@ -21,6 +21,10 @@
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     ]]></Description>
     <ChangeLog><![CDATA[
+        0.4.7:
+        - Fixes stacking of Reagent Mix via Smart Stow, only stacking same ingredients
+        - Adds additional logging for Smart Stow for identifying where items are placed
+
         0.4.6:
         - Added slot exclusion config to prevent potential dangerous SmartStow operations (e.g. IC-10 chips into Hardsuit/HARM suit chip slots)
         - Added Stow+Swap operation for when hands are full, allowing quickly swapping tools to active hand
