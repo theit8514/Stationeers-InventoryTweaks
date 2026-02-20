@@ -2,7 +2,7 @@
 <ModMetadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.7</Version>
+    <Version>0.4.8</Version>
     <!-- Don't update this version manually, it is updated by the build process -->
     <Description><![CDATA[[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
@@ -21,6 +21,9 @@
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     ]]></Description>
     <ChangeLog><![CDATA[
+        0.4.8:
+        - Rebuild of previous version to fix Console Print errors
+
         0.4.7:
         - Fixes stacking of Reagent Mix via Smart Stow, only stacking same ingredients
         - Adds additional logging for Smart Stow for identifying where items are placed
