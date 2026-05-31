@@ -155,6 +155,54 @@ public static class SaveManager
     }
 
     /// <summary>
+    ///     Renames the InventoryTweaks sidecar file for the head save when a station is renamed.
+    ///     The directory move performed by the base game already relocates the <c>InventoryTweaks</c>
+    ///     folder; only the head save's basename changes (from <paramref name="oldHeadSaveName" /> to
+    ///     <paramref name="newStationName" /><c>.save</c>), so its sidecar file needs to be renamed to match.
+    /// </summary>
+    /// <param name="oldStationName">The previous station name (unused, kept for symmetry/logging).</param>
+    /// <param name="newStationName">The new station name. The station directory has already been moved here.</param>
+    /// <param name="oldHeadSaveName">The original head save file name (e.g. <c>StationName.save</c>).</param>
+    public static void HandleRenameStation(string oldStationName, string newStationName, string oldHeadSaveName)
+    {
+        try
+        {
+            var savePath = Path.GetFullPath(StationSaveUtils.GetSavePathSavesSubDir().FullName);
+            var inventoryTweaksDir = new DirectoryInfo(Path.Combine(savePath, newStationName,
+                Constants.SaveData.InventoryTweaksFolder));
+            if (!inventoryTweaksDir.Exists)
+                return;
+
+            var oldSidecar = new FileInfo(Path.Combine(inventoryTweaksDir.FullName,
+                $"{oldHeadSaveName}.{Constants.SaveData.InventoryTweaksFileName}"));
+            if (!oldSidecar.Exists)
+            {
+                Plugin.Log.LogDebug(
+                    $"No InventoryTweaks sidecar to rename for station '{oldStationName}' -> '{newStationName}' at {oldSidecar.FullName}");
+                return;
+            }
+
+            var newHeadSaveName = $"{newStationName}{SaveLoadConstants.SaveFileExtension}";
+            var newSidecar = new FileInfo(Path.Combine(inventoryTweaksDir.FullName,
+                $"{newHeadSaveName}.{Constants.SaveData.InventoryTweaksFileName}"));
+            if (newSidecar.Exists)
+            {
+                Plugin.Log.LogWarning(
+                    $"Target InventoryTweaks sidecar already exists, overwriting: {newSidecar.FullName}");
+                newSidecar.Delete();
+            }
+
+            Plugin.Log.LogInfo($"Renaming InventoryTweaks sidecar {oldSidecar.FullName} to {newSidecar.FullName}");
+            oldSidecar.MoveTo(newSidecar.FullName);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogError("Failed to rename InventoryTweaks sidecar during station rename. Check log for more information.");
+            Plugin.Log.LogInfo(ex);
+        }
+    }
+
+    /// <summary>
     ///     Handles the major update popup for migrating old save files to the new format.
     /// </summary>
     public static void HandleMajorUpdatePopup()

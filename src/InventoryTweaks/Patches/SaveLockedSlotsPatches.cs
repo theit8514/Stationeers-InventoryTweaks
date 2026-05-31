@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading;
 using Assets.Scripts;
 using Assets.Scripts.Serialization;
@@ -75,5 +76,53 @@ public class SaveLockedSlotsPatches
     public static void GameManager_MajorUpdatePopup_Postfix()
     {
         SaveManager.HandleMajorUpdatePopup();
+    }
+
+    /// <summary>
+    ///     Prefix for <see cref="SaveHelper.RenameStation" />. Captures the original head save file name
+    ///     before the base game moves it, so the postfix can rename the matching InventoryTweaks sidecar.
+    ///     The captured value is passed forward via Harmony's <paramref name="__state" /> parameter.
+    /// </summary>
+    /// <param name="oldStationName">The current station name (directory still exists under this name).</param>
+    /// <param name="__state">The original head save file name (e.g. <c>StationName.save</c>), or <see langword="null" />.</param>
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(SaveHelper), nameof(SaveHelper.RenameStation))]
+    [HarmonyWrapSafe]
+    // ReSharper disable once InconsistentNaming
+    public static void RenameStation_Prefix(string oldStationName, out string __state)
+    {
+        __state = null;
+        try
+        {
+            var savesDir = StationSaveUtils.GetSavePathSavesSubDir();
+            var stationDirectory = new DirectoryInfo(Path.Combine(savesDir.FullName, oldStationName));
+            var headSaveFiles = stationDirectory.GetFiles(SaveLoadConstants.SaveFileSearchPattern);
+            if (headSaveFiles.Length > 0)
+                __state = headSaveFiles[0].Name;
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogWarning("Failed to capture head save before station rename: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    ///     Postfix for <see cref="SaveHelper.RenameStation" />. When the base game has successfully
+    ///     renamed the station, renames the corresponding InventoryTweaks sidecar to match the new
+    ///     head save file name.
+    /// </summary>
+    /// <param name="oldStationName">The previous station name.</param>
+    /// <param name="newStationName">The new station name.</param>
+    /// <param name="__result">The base game's return value; the rename is only mirrored when <see langword="true" />.</param>
+    /// <param name="__state">The original head save file name captured by the prefix.</param>
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(SaveHelper), nameof(SaveHelper.RenameStation))]
+    [HarmonyWrapSafe]
+    // ReSharper disable once InconsistentNaming
+    public static void RenameStation_Postfix(string oldStationName, string newStationName, bool __result, string __state)
+    {
+        if (!__result || string.IsNullOrEmpty(__state))
+            return;
+        SaveManager.HandleRenameStation(oldStationName, newStationName, __state);
     }
 }
