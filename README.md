@@ -82,6 +82,34 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
   Players can still manually place items in these slots if desired. For example, "ItemHardSuit:Programmable Chip"
   prevents automated stow from placing programmable chips in the chip slot of hard suits.
 
+## Smart Stow Priorities
+
+These options live under the `[SmartStow]` section of the config file and control how Smart Stow picks a target slot.
+Each priority is an integer from 0 to 25. Lower numbers sort first, and setting a priority to `0` removes that
+criterion from the sort entirely. Ties between criteria with the same priority fall back to a stable internal order.
+
+The defaults reproduce the order: existing stack -> locked slot -> visible window -> typed slot -> empty regular slot.
+
+Note that each priority is evaluated independently in order. A slot matching an earlier criterion always sorts
+ahead of a slot that only matches later criteria. For example, with the defaults below an empty locked slot for
+the item always wins over any other slot (visible or not), but among slots that don't match a lock, visible slots
+sort ahead of hidden typed or regular slots.
+
+* PriorityExistingStack (default: 1): Prefer occupied slots holding the same stackable item with room to merge into.
+  Disable by setting to 0 if you'd rather not auto-merge into existing stacks via Smart Stow.
+* PriorityLockedSlot (default: 2): Prefer empty slots that are locked to the item being stowed.
+  Locked slots that don't match the item are always excluded regardless of this setting.
+* PriorityVisibleWindow (default: 3): Prefer slots that belong to inventory windows currently visible on-screen.
+  This biases Smart Stow toward containers you've opened, ahead of typed or regular slots in closed windows.
+* PriorityTypedSlot (default: 4): Prefer empty typed slots that match the item's slot type (for example, a Tool
+  slot for a hand drill).
+* PriorityEmptyRegularSlot (default: 5): Prefer empty slots that are neither locked nor typed for the item. This is
+  the catch-all bucket for generic inventory storage.
+
+* OnlyVisibleWindows (default: false): When enabled, Smart Stow ignores slots that belong to inventory windows that
+  are not currently visible. Slots on the player character are not affected. Use this if you want Smart Stow to only
+  place items into containers you have explicitly opened.
+
 # Future Plans
 
 Thoughts on additional features:

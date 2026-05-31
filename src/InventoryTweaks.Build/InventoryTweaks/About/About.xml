@@ -17,6 +17,7 @@
         * Fixes tracking of original slots so that items return to their proper place via Smart Stow.
         * Ability to lock slots to an item type (e.g. Hand Drill, Cable Coil, etc.). Hover over the slot using Alt and press keybind to lock/unlock.
         * Override Inventory Select keybind to allow swapping when Invalid slot selected (e.g. trying to swap non-tool into a tool slot)
+        * Configure Smart Stow slot priority per condition via BepInEx config (existing stack, locked slot, typed slot, regular slot, visible window)
         [h2]License[/h2]
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     ]]></Description>

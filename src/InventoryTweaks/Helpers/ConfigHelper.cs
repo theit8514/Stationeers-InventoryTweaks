@@ -1,5 +1,7 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using BepInEx.Configuration;
+using InventoryTweaks.Data;
 
 namespace InventoryTweaks.Helpers;
 
@@ -8,6 +10,7 @@ internal static class ConfigHelper
     public static void LoadConfig(ConfigFile configFile)
     {
         General.InitConfig(configFile);
+        SmartStow.InitConfig(configFile);
     }
 
     public static class General
@@ -139,6 +142,108 @@ internal static class ConfigHelper
             }
 
             return exclusions;
+        }
+    }
+
+    /// <summary>
+    ///     Configuration for Smart Stow slot ordering. Each criterion has an integer priority;
+    ///     lower values sort first. Set a priority to 0 to disable that criterion.
+    /// </summary>
+    public static class SmartStow
+    {
+        private const string PriorityDescriptionSuffix = " Lower priority wins. Set to 0 to disable.";
+        private static readonly AcceptableValueRange<int> PriorityRange = new(0, 25);
+
+        private static ConfigEntry<int> _configPriorityExistingStack;
+        private static ConfigEntry<int> _configPriorityLockedSlot;
+        private static ConfigEntry<int> _configPriorityTypedSlot;
+        private static ConfigEntry<int> _configPriorityEmptyRegularSlot;
+        private static ConfigEntry<int> _configPriorityVisibleWindow;
+        private static ConfigEntry<bool> _configOnlyVisibleWindows;
+
+        /// <summary>
+        ///     Enabled sort criteria in priority order, rebuilt when configuration changes.
+        /// </summary>
+        public static IReadOnlyList<SmartStowSortCriterion> OrderedCriteria { get; private set; }
+
+        /// <summary>
+        ///     When true, Smart Stow excludes slots that belong to inventory windows that are not currently visible.
+        ///     Hand slots and the player's body slots are unaffected.
+        /// </summary>
+        public static bool OnlyVisibleWindows => _configOnlyVisibleWindows.Value;
+
+        /// <summary>
+        ///     Initializes Smart Stow priority configuration and builds the initial criteria order.
+        /// </summary>
+        /// <param name="configFile">The BepInEx configuration file instance.</param>
+        public static void InitConfig(ConfigFile configFile)
+        {
+            _configPriorityExistingStack = BindPriority(configFile,
+                "PriorityExistingStack",
+                1,
+                "Prefer occupied stacks of the same item with room to merge." + PriorityDescriptionSuffix);
+
+            _configPriorityLockedSlot = BindPriority(configFile,
+                "PriorityLockedSlot",
+                2,
+                "Prefer empty slots locked to this item." + PriorityDescriptionSuffix);
+
+            _configPriorityVisibleWindow = BindPriority(configFile,
+                "PriorityVisibleWindow",
+                3,
+                "Prefer slots in visible inventory windows." + PriorityDescriptionSuffix);
+
+            _configPriorityTypedSlot = BindPriority(configFile,
+                "PriorityTypedSlot",
+                4,
+                "Prefer empty typed slots matching the item (e.g. tool slot for tools)." + PriorityDescriptionSuffix);
+
+            _configPriorityEmptyRegularSlot = BindPriority(configFile,
+                "PriorityEmptyRegularSlot",
+                5,
+                "Prefer empty regular (untyped, unlocked) slots." + PriorityDescriptionSuffix);
+
+            _configOnlyVisibleWindows = configFile.Bind(nameof(SmartStow),
+                "OnlyVisibleWindows",
+                false,
+                "When true, Smart Stow only considers slots that belong to visible inventory windows. " +
+                "Slots inside closed windows are excluded entirely.");
+
+            configFile.SettingChanged += ConfigFileOnSettingChanged;
+            OrderedCriteria = BuildOrderedCriteria();
+        }
+
+        private static ConfigEntry<int> BindPriority(ConfigFile configFile,
+            string key,
+            int defaultValue,
+            string description)
+        {
+            return configFile.Bind(nameof(SmartStow),
+                key,
+                defaultValue,
+                new ConfigDescription(description, PriorityRange));
+        }
+
+        private static void ConfigFileOnSettingChanged(object sender, SettingChangedEventArgs e)
+        {
+            OrderedCriteria = BuildOrderedCriteria();
+        }
+
+        private static IReadOnlyList<SmartStowSortCriterion> BuildOrderedCriteria()
+        {
+            return new (SmartStowSortCriterion criterion, int priority)[]
+                {
+                    (SmartStowSortCriterion.ExistingStack, _configPriorityExistingStack.Value),
+                    (SmartStowSortCriterion.LockedSlot, _configPriorityLockedSlot.Value),
+                    (SmartStowSortCriterion.TypedSlot, _configPriorityTypedSlot.Value),
+                    (SmartStowSortCriterion.EmptyRegularSlot, _configPriorityEmptyRegularSlot.Value),
+                    (SmartStowSortCriterion.VisibleWindow, _configPriorityVisibleWindow.Value)
+                }
+                .Where(x => x.priority > 0)
+                .OrderBy(x => x.priority)
+                .ThenBy(x => x.criterion)
+                .Select(x => x.criterion)
+                .ToList();
         }
     }
 }

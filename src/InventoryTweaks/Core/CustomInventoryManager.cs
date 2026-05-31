@@ -504,6 +504,10 @@ public static class CustomInventoryManager
         return true;
     }
 
+    /// <summary>
+    ///     Collects and orders candidate inventory slots for Smart Stow.
+    ///     Sort priority is configured via <see cref="ConfigHelper.SmartStow.OrderedCriteria" />.
+    /// </summary>
     private static IEnumerable<SlotWrapper> GetTargetSlotsOrdered(DynamicThing thing)
     {
         var prefabHash = thing.GetPrefabHash();
@@ -513,18 +517,20 @@ public static class CustomInventoryManager
             .SelectMany(RecurseSlots)
             .Select(slot => BuildSlotWrapper(slot, slotLookup))
             .ToArray();
-        var sortedSlots = allHumanSlots
+        var filtered = allHumanSlots
             .Where(x => x.IsOfSlotTypeOrNoneType(thing.SlotType)) // Only allow slots of this type or none type
             .Where(x => x.IsLockedToOrNotLocked(prefabHash)) // Only allow non-locked slots or slots locked to this type
             .Where(x => !SlotHelper.IsSlotExcludedForItem(x.Slot, thing)) // Exclude slots based on configuration
-            .OrderByDescending(x => x.IsVisible) // Sort first by visible windows.
-            .ThenByDescending(x =>
-                x.IsOccupied && x.OccupantPrefabHash == prefabHash) // Then by occupied slots (for stacking)
-            .ThenByDescending(x => x.IsLocked && x.LockedToPrefabHash == prefabHash) // Then by locked slots
-            .ThenByDescending(x => x.IsOfSlotType(thing.SlotType)) // Then by slots of this type
-            .ThenBy(x => !x.IsOccupied) // Then by non-occupied slots
-            .ToArray();
-        return sortedSlots;
+            .Where(x => !ConfigHelper.SmartStow.OnlyVisibleWindows ||
+                        !x.IsInHiddenWindow); // Optionally exclude slots in hidden inventory windows
+
+        var sorted =
+            ConfigHelper.SmartStow.OrderedCriteria.Aggregate<SmartStowSortCriterion, IOrderedEnumerable<SlotWrapper>>(
+                null, (current, criterion) => current == null
+                    ? filtered.OrderByDescending(x => x.IsHigherPriorityFor(criterion, prefabHash, thing.SlotType))
+                    : current.ThenByDescending(x => x.IsHigherPriorityFor(criterion, prefabHash, thing.SlotType)));
+
+        return sorted ?? filtered;
     }
 
     private static SlotWrapper BuildSlotWrapper(Slot slot, Lookup<long, int, ILockedSlot> lookup)
