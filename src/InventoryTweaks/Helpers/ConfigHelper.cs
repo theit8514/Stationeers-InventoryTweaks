@@ -154,12 +154,25 @@ internal static class ConfigHelper
         private const string PriorityDescriptionSuffix = " Lower priority wins. Set to 0 to disable.";
         private static readonly AcceptableValueRange<int> PriorityRange = new(0, 25);
 
+        private const string DescriptionAllowReagentMerging =
+            """
+            When true, Reagent Mix (Slag) stacks that fall through Smart Stow's recipe-matching
+            merge step are still allowed to merge with same-prefab occupants of placement targets
+            (e.g. via the original-slot or free-slot strategies).
+            When false, Reagent Mixes are kept strictly separated: Smart Stow will only place
+            them into truly empty slots, never co-mingling with an existing Reagent Mix that
+            differs in recipe from the source.
+            Disable this if you frequently see different Reagent Mix recipes silently combining,
+            for example on multiplayer clients where the source recipe is not visible.
+            """;
+
         private static ConfigEntry<int> _configPriorityExistingStack;
         private static ConfigEntry<int> _configPriorityLockedSlot;
         private static ConfigEntry<int> _configPriorityTypedSlot;
         private static ConfigEntry<int> _configPriorityEmptyRegularSlot;
         private static ConfigEntry<int> _configPriorityVisibleWindow;
         private static ConfigEntry<bool> _configOnlyVisibleWindows;
+        private static ConfigEntry<bool> _configAllowReagentMerging;
 
         /// <summary>
         ///     Enabled sort criteria in priority order, rebuilt when configuration changes.
@@ -171,6 +184,13 @@ internal static class ConfigHelper
         ///     Hand slots and the player's body slots are unaffected.
         /// </summary>
         public static bool OnlyVisibleWindows => _configOnlyVisibleWindows.Value;
+
+        /// <summary>
+        ///     When true, Reagent Mix (Slag) stacks may merge with same-prefab occupants of fall-through
+        ///     placement targets after the initial recipe-matching merge step. When false, Smart Stow
+        ///     keeps Reagent Mixes strictly separated and only places them into empty slots.
+        /// </summary>
+        public static bool AllowReagentMerging => _configAllowReagentMerging.Value;
 
         /// <summary>
         ///     Initializes Smart Stow priority configuration and builds the initial criteria order.
@@ -208,6 +228,11 @@ internal static class ConfigHelper
                 false,
                 "When true, Smart Stow only considers slots that belong to visible inventory windows. " +
                 "Slots inside closed windows are excluded entirely.");
+
+            _configAllowReagentMerging = configFile.Bind(nameof(SmartStow),
+                nameof(AllowReagentMerging),
+                true,
+                DescriptionAllowReagentMerging);
 
             configFile.SettingChanged += ConfigFileOnSettingChanged;
             OrderedCriteria = BuildOrderedCriteria();

@@ -69,27 +69,46 @@ public static class CustomInventoryManager
                     $"  - {SlotHelper.GetSlotDisplayName(slot.Slot)} (Locked: {slot.IsLocked}, Occupied: {slot.IsOccupied}, Visible: {slot.IsVisible})");
             }
 
+            // Whether the post-switch fall-through is allowed to land the source on a slot whose
+            // occupant could merge with it. Slag (Reagent Mix) opts in via configuration so users
+            // can choose between "co-mingle on placement" and "keep recipes strictly separated".
+            var allowMerging = true;
+
             switch (selectedThing)
             {
                 // If the item is Slag (e.g. Reagent Mix), only merge to matching reagent mixes.
                 case Slag slag:
                 {
-                    var reagentMergeResult = MergeSlag(slag, targetSlots);
-                    if (!reagentMergeResult)
+                    var slagRemaining = MergeSlag(slag, targetSlots);
+                    if (slagRemaining <= 0)
                     {
                         // Reagent mix was merged successfully.
                         return true;
                     }
 
+                    allowMerging = ConfigHelper.SmartStow.AllowReagentMerging;
+                    var hasEmptyPlacementTarget = targetSlots.Any(x =>
+                        !x.IsOccupied &&
+                        selectedThing.CanEnter(x.Slot).Result);
+                    if (allowMerging && !hasEmptyPlacementTarget)
+                    {
+                        Plugin.Log.LogInfo(
+                            "No empty slots available for Reagent Mix placement; trying fallback stack merge");
+                        slagRemaining = DoubleClickMoveStackable(selectedSlot, slag, targetSlots);
+                        if (slagRemaining <= 0)
+                            return true;
+                    }
+
                     Plugin.Log.LogInfo(
-                        $"Still have {slag.Quantity} Reagent Mix remaining, falling through to normal hand logic");
+                        $"Still have {slagRemaining} Reagent Mix remaining, falling through to normal hand logic " +
+                        $"(allowMerging={allowMerging})");
                     break;
                 }
                 // If the item is stackable, run our stackable code.
                 case Stackable stack:
                 {
-                    var stackableResult = DoubleClickMoveStackable(selectedSlot, stack, targetSlots);
-                    if (!stackableResult)
+                    var stackableRemaining = DoubleClickMoveStackable(selectedSlot, stack, targetSlots);
+                    if (stackableRemaining <= 0)
                     {
                         // All stackable items were processed successfully
                         return true;
@@ -97,7 +116,7 @@ public static class CustomInventoryManager
 
                     // If there are remaining stackable items, fall through to normal hand logic
                     Plugin.Log.LogInfo(
-                        $"Still have {stack.Quantity} stackable items remaining, falling through to normal hand logic");
+                        $"Still have {stackableRemaining} stackable items remaining, falling through to normal hand logic");
                     break;
                 }
             }
@@ -108,9 +127,10 @@ public static class CustomInventoryManager
             {
                 Plugin.Log.LogDebug("Moving hand to inventory");
                 return DoubleClickMoveToInventory(selectedSlot, targetSlots
-                    .Where(x => selectedThing.CanEnter(x.Slot)
-                        .Result) // Only if this thing can enter this slot (depends on thing prefab)
-                    .ToArray()
+                        .Where(x => selectedThing.CanEnter(x.Slot)
+                            .Result) // Only if this thing can enter this slot (depends on thing prefab)
+                        .ToArray(),
+                    allowMerging
                 );
             }
 
@@ -278,20 +298,27 @@ public static class CustomInventoryManager
     /// <param name="stack">The stackable item being moved</param>
     /// <param name="targetSlots">Available target slots for stacking</param>
     /// <returns>
-    ///     <see langword="true" /> if there are remaining items that need further processing,
-    ///     or <see langword="false" /> if all items have been successfully processed.
+    ///     The expected remaining source quantity after issuing merge requests. <c>0</c> means
+    ///     all items have been queued for processing; a positive value means some items remain
+    ///     and the caller should fall through to additional placement logic.
     /// </returns>
-    private static bool DoubleClickMoveStackable(Slot selectedSlot,
+    /// <remarks>
+    ///     <see cref="Thing.Merge" /> dispatches asynchronously to the server on multiplayer
+    ///     clients, so <c>stack.Quantity</c> cannot be read mid-loop to decide when the source is
+    ///     exhausted. Instead we mirror the server-side transfer math
+    ///     (<c>min(remaining, target.MaxQuantity - target.Quantity)</c>) against a snapshot of
+    ///     <c>targetSlots</c> taken before any merges are issued.
+    /// </remarks>
+    private static int DoubleClickMoveStackable(Slot selectedSlot,
         Stackable stack,
         IEnumerable<SlotWrapper> targetSlots)
     {
-        // If the selected item is in our hand, try to fill the inventory first
+        var remaining = stack.Quantity;
+
         if (InventoryManager.LeftHandSlot.Get() == selectedSlot.Get() ||
             InventoryManager.RightHandSlot.Get() == selectedSlot.Get())
         {
-            Plugin.Log.LogInfo($"Finding slot in inventory to place {stack.Quantity} of {stack.DisplayName}");
-            // Search for valid slots in the inventory
-            // Sorted by quantity descending (fill larger stacks first)
+            Plugin.Log.LogInfo($"Finding slot in inventory to place {remaining} of {stack.DisplayName}");
             var slots = targetSlots
                 .Where(x => x.IsStackable &&
                             x.Stackable.CanStack(stack) &&
@@ -304,48 +331,45 @@ public static class CustomInventoryManager
                 var slot = stackSlot.Slot;
                 var targetStack = stackSlot.Stackable;
 
-                // Merge the items into the target stack.
-                Plugin.Log.LogInfo(
-                    $"Merging {stack.Quantity} items into {SlotHelper.GetSlotDisplayName(slot)} which has {targetStack.Quantity} items.");
-                OnServer.Merge(targetStack, stack);
-                // The source stack will now contain the remaining quantity or zero.
-                Plugin.Log.LogDebug($"Target quantity: {targetStack.Quantity} Source quantity: {stack.Quantity}");
+                var transfer = Math.Min(remaining, targetStack.MaxQuantity - targetStack.Quantity);
+                if (transfer <= 0)
+                    continue;
 
-                // Break from this loop if there are no more items to process.
-                if (stack.Quantity <= 0)
+                Plugin.Log.LogInfo(
+                    $"Merging {transfer} items into {SlotHelper.GetSlotDisplayName(slot)} which has {targetStack.Quantity} items.");
+                Thing.Merge(targetStack, stack);
+                remaining -= transfer;
+                Plugin.Log.LogDebug($"Expected remaining source quantity: {remaining}");
+
+                if (remaining <= 0)
                     break;
             }
 
-            // If there are no more items to process then skip the base code execution
-            if (stack.Quantity <= 0)
+            if (remaining <= 0)
             {
                 UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
-                return false;
+                return 0;
             }
 
-            // A partial stack was left over, return true to continue base code execution
             Plugin.Log.LogInfo("Remaining items have no partial stacks to fill..." +
-                               "Continuing to main item handler.");
-            return true;
+                               " Continuing to main item handler.");
+            return remaining;
         }
 
-        // Try to fill hand slots with this item
-        // Try both hands regardless of individual results, as FillHandSlot returns false on success
-        FillHandSlot(InventoryManager.LeftHandSlot, selectedSlot, stack);
-        if (stack.Quantity <= 0)
-            return false; // All items processed successfully, stop processing
-        Plugin.Log.LogInfo($"Still have {stack.Quantity} items remaining after filling left hand, trying right hand");
-        FillHandSlot(InventoryManager.RightHandSlot, selectedSlot, stack);
+        remaining = FillHandSlot(InventoryManager.LeftHandSlot, selectedSlot, stack, remaining);
+        if (remaining <= 0)
+            return 0;
+        Plugin.Log.LogInfo($"Still have {remaining} items remaining after filling left hand, trying right hand");
+        remaining = FillHandSlot(InventoryManager.RightHandSlot, selectedSlot, stack, remaining);
 
-        // If we still have items remaining after trying both hands, return true to continue processing
-        if (stack.Quantity > 0)
+        if (remaining > 0)
         {
             Plugin.Log.LogInfo(
-                $"Still have {stack.Quantity} items remaining after trying both hands, continuing with other logic");
-            return true; // Return true to continue processing
+                $"Still have {remaining} items remaining after trying both hands, continuing with other logic");
+            return remaining;
         }
 
-        return false; // All items processed successfully, stop processing
+        return 0;
     }
 
     /// <summary>
@@ -353,8 +377,13 @@ public static class CustomInventoryManager
     /// </summary>
     /// <param name="thing">The item to find a slot for</param>
     /// <param name="targetSlots">The list of potential target slots</param>
+    /// <param name="allowMerging">
+    ///     When <see langword="false" />, candidates whose occupant could merge with
+    ///     <paramref name="thing" /> are rejected even if a strategy would otherwise pick them
+    ///     (defensive against state lag where a wrapper still believes the slot is empty).
+    /// </param>
     /// <returns>The selected target slot, or null if no suitable slot was found</returns>
-    private static Slot FindTargetSlot(DynamicThing thing, SlotWrapper[] targetSlots)
+    private static Slot FindTargetSlot(DynamicThing thing, SlotWrapper[] targetSlots, bool allowMerging = true)
     {
         // Strategy 1: Try to return to original slot
         if (OriginalSlots.TryGetValue(thing.ReferenceId, out var originalSlot))
@@ -375,6 +404,11 @@ public static class CustomInventoryManager
                 Plugin.Log.LogWarning("Original slot is not a valid type for this item");
             else if (targetSlots.All(x => !ReferenceEquals(x.Slot, originalSlot)))
                 Plugin.Log.LogWarning("Original slot is not a valid target");
+            else if (!IsAllowedTarget(originalSlot, thing, allowMerging))
+            {
+                Plugin.Log.LogWarning(
+                    "Original slot would auto-merge with current occupant; skipping (allowMerging=false)");
+            }
             else
             {
                 Plugin.Log.LogInfo($"Selected target slot (original) - {SlotHelper.GetSlotDisplayName(originalSlot)}");
@@ -388,6 +422,8 @@ public static class CustomInventoryManager
         {
             if (slot.IsLocked && slot.LockedToPrefabHash != thing.PrefabHash)
                 continue;
+            if (!IsAllowedTarget(slot.Slot, thing, allowMerging))
+                continue;
 
             Plugin.Log.LogInfo($"Selected target slot - {SlotHelper.GetSlotDisplayName(slot.Slot)}");
             Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(slot.Slot)}");
@@ -397,7 +433,7 @@ public static class CustomInventoryManager
         // Strategy 3: Find a free slot from the human or open inventory windows
         var freeSlot = InventoryManager.ParentHuman.GetFreeSlot(thing.SlotType, ExcludeHandSlots) ??
                        FindFreeSlotOpenWindowsSlotPriority.GetValue<Slot>(thing.SlotType, true);
-        if (freeSlot != null)
+        if (freeSlot != null && IsAllowedTarget(freeSlot, thing, allowMerging))
         {
             Plugin.Log.LogInfo($"Selected target slot (free slot) - {SlotHelper.GetSlotDisplayName(freeSlot)}");
             Plugin.Log.LogInfo($"Target slot location - {SlotHelper.GetSlotLocationPath(freeSlot)}");
@@ -412,6 +448,8 @@ public static class CustomInventoryManager
 
             var nestedFreeSlot = slot.Get().GetFreeSlot(thing.SlotType);
             if (nestedFreeSlot == null)
+                continue;
+            if (!IsAllowedTarget(nestedFreeSlot, thing, allowMerging))
                 continue;
 
             Plugin.Log.LogInfo($"Selected target slot (nested) - {SlotHelper.GetSlotDisplayName(nestedFreeSlot)}");
@@ -433,15 +471,44 @@ public static class CustomInventoryManager
     }
 
     /// <summary>
+    ///     Returns <see langword="false" /> when <paramref name="allowMerging" /> is disabled and
+    ///     the slot's current (live) occupant is a <see cref="Stackable" /> that the game would
+    ///     auto-merge with <paramref name="thing" />. All other cases return <see langword="true" />.
+    /// </summary>
+    /// <remarks>
+    ///     Strategy 2 already filters by <see cref="SlotWrapper.IsOccupied" /> at snapshot time, but
+    ///     on multiplayer clients the live occupant can differ. This guard re-checks at decision
+    ///     time so we never queue a placement that would silently merge into a different stack
+    ///     (e.g. mismatched Reagent Mixes).
+    /// </remarks>
+    private static bool IsAllowedTarget(Slot slot, DynamicThing thing, bool allowMerging)
+    {
+        if (allowMerging)
+            return true;
+        if (!(slot.Get() is Stackable existing))
+            return true;
+        if (!(thing is Stackable incoming))
+            return true;
+        return !existing.CanStack(incoming) || existing.IsStackFull;
+    }
+
+    /// <summary>
     ///     Handles a normal item being moved using double click. Looks up where the item was originally
     ///     stored and tries to place it in that slot. Otherwise, continue normal slot processing.
     /// </summary>
-    /// <param name="selectedSlot"></param>
-    /// <param name="targetSlots"></param>
-    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots)
+    /// <param name="selectedSlot">The slot containing the item being moved.</param>
+    /// <param name="targetSlots">The list of potential destination slots.</param>
+    /// <param name="allowMerging">
+    ///     When <see langword="false" />, candidate slots whose occupant could merge with the moved
+    ///     item are rejected (forwarded to <see cref="FindTargetSlot" />). Set this to
+    ///     <see langword="false" /> for items where same-prefab merges are unsafe (e.g. Reagent Mix
+    ///     Slag, where two stacks may share a prefab but carry different reagent recipes).
+    /// </param>
+    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots,
+        bool allowMerging = true)
     {
         var thing = selectedSlot.Get();
-        var targetSlot = FindTargetSlot(thing, targetSlots);
+        var targetSlot = FindTargetSlot(thing, targetSlots, allowMerging);
 
         switch (targetSlot)
         {
@@ -473,35 +540,109 @@ public static class CustomInventoryManager
     /// <param name="slag">The Reagent Mix to be merged</param>
     /// <param name="targetSlots">The available target slots for merging</param>
     /// <returns>
-    ///     <see langword="true" /> if there are remaining items that need further processing,
-    ///     or <see langword="false" /> if all items have been successfully processed.
+    ///     The expected remaining source quantity after issuing merge requests. <c>0</c> means
+    ///     all items have been queued for processing; a positive value means some items remain
+    ///     and the caller should fall through to additional placement logic.
     /// </returns>
-    private static bool MergeSlag(Slag slag, SlotWrapper[] targetSlots)
+    /// <remarks>
+    ///     See <see cref="DoubleClickMoveStackable" /> for why we track <c>remaining</c> locally
+    ///     instead of reading <c>slag.Quantity</c> after each <see cref="Thing.Merge" /> call.
+    ///     <para>
+    ///         On multiplayer clients (<c>!GameManager.RunSimulation</c>), <c>Slag.CreatedReagentMixture</c>
+    ///         is not synchronised from the server, so every slag observable to the client appears
+    ///         empty and <see cref="ReagentMixture.Equals(Recipe)" /> would falsely match different
+    ///         recipes against each other. We refuse to issue any merge messages in that case and
+    ///         let the caller fall through to placement (with <c>allowMerging=false</c>).
+    ///     </para>
+    /// </remarks>
+    private static int MergeSlag(Slag slag, SlotWrapper[] targetSlots)
     {
-        var ingredients = slag.CreatedReagentMixture.ToIngredientList().Select(x => x.ReagentName);
-        Plugin.Log.LogInfo($"Attempting to merge Reagent Mix with ingredients {string.Join(", ", ingredients)}");
-        // Get a recipe based on the slag mix
+        Plugin.Log.LogInfo(
+            $"Source Reagent Mix [{FormatReagentMixture(slag.CreatedReagentMixture)}] (Qty: {slag.Quantity}/{slag.MaxQuantity})");
+
+        if (!GameManager.RunSimulation)
+        {
+            Plugin.Log.LogWarning(
+                "Skipping Reagent Mix merge on multiplayer client: Slag.CreatedReagentMixture is " +
+                "not synchronised from the server, so we cannot reliably distinguish recipes. " +
+                "Source will fall through to placement only.");
+            return slag.Quantity;
+        }
+
         var recipe = new Recipe(slag.CreatedReagentMixture, 30, 30);
-        // Get slots that contain slag.
-        var targetSlagSlots = (from slot in targetSlots
-            let targetSlag = slot.Occupant as Slag
-            where targetSlag != null && targetSlag.CreatedReagentMixture.Equals(recipe)
-            select new { slot.Slot, Target = targetSlag }).ToArray();
+
+        // Materialize all Slag-occupied target candidates so we can log them up front (matching the
+        // "Target slots list" pattern in SmartStow) before applying the recipe-equality filter.
+        var slagCandidates = targetSlots
+            .Select(x => new { Wrapper = x, Slag = x.Occupant as Slag })
+            .Where(x => x.Slag != null)
+            .ToArray();
+        Plugin.Log.LogInfo($"Reagent Mix candidate slots ({slagCandidates.Length} slots):");
+        foreach (var candidate in slagCandidates)
+        {
+            var matches = candidate.Slag.CreatedReagentMixture.Equals(recipe);
+            Plugin.Log.LogInfo(
+                $"  - {SlotHelper.GetSlotDisplayName(candidate.Wrapper.Slot)} " +
+                $"[{FormatReagentMixture(candidate.Slag.CreatedReagentMixture)}] " +
+                $"(Match: {matches}, Qty: {candidate.Slag.Quantity}/{candidate.Slag.MaxQuantity})");
+        }
+
+        var targetSlagSlots = slagCandidates
+            .Where(x => x.Slag.CreatedReagentMixture.Equals(recipe))
+            .Select(x => new { x.Wrapper.Slot, Target = x.Slag })
+            .ToArray();
         Plugin.Log.LogDebug($"Found {targetSlagSlots.Length} slots that contain matching Reagent Mix");
         if (targetSlagSlots.Length == 0)
-            return true;
+            return slag.Quantity;
 
+        var remaining = slag.Quantity;
         foreach (var targetSlagSlot in targetSlagSlots)
         {
             var targetSlag = targetSlagSlot.Target;
-            Plugin.Log.LogDebug($"Merging with slot {SlotHelper.GetSlotDisplayName(targetSlagSlot.Slot)}");
-            // Merge the slag into the target slag.
-            OnServer.Merge(targetSlag, slag);
-            if (slag.Quantity <= 0)
-                return false;
+
+            var transfer = Math.Min(remaining, targetSlag.MaxQuantity - targetSlag.Quantity);
+            if (transfer <= 0)
+                continue;
+
+            Plugin.Log.LogDebug(
+                $"Merging {transfer} into slot {SlotHelper.GetSlotDisplayName(targetSlagSlot.Slot)}");
+            Thing.Merge(targetSlag, slag);
+            remaining -= transfer;
+            if (remaining <= 0)
+                return 0;
         }
 
-        return true;
+        return remaining;
+    }
+
+    /// <summary>
+    ///     Formats the non-zero reagents of a <see cref="ReagentMixture" /> for logging.
+    /// </summary>
+    /// <param name="mixture">The mixture to format. May be <see langword="null" />.</param>
+    /// <returns>
+    ///     A comma-separated <c>Name=Quantity</c> list, <c>(empty)</c> if no reagents are present,
+    ///     or <c>(null)</c> if the mixture itself is missing.
+    /// </returns>
+    private static string FormatReagentMixture(ReagentMixture mixture)
+    {
+        if (mixture == null)
+            return "(null)";
+        var ingredients = mixture.ToIngredientList();
+        if (ingredients.Count == 0)
+            return "(empty)";
+        return string.Join(", ", ingredients.Select(x => $"{TrimReagentName(x.ReagentName)}={x.Quantity:0.######}"));
+    }
+
+    /// <summary>
+    ///     Strips the <c>Reagents.</c> namespace prefix that <c>ReagentMixIngredientSaveData.ReagentName</c>
+    ///     emits, so log lines read <c>Silver=0.5</c> instead of <c>Reagents.Silver=0.5</c>.
+    /// </summary>
+    private static string TrimReagentName(string reagentName)
+    {
+        if (string.IsNullOrEmpty(reagentName))
+            return reagentName;
+        const string prefix = "Reagents.";
+        return reagentName.StartsWith(prefix) ? reagentName.Substring(prefix.Length) : reagentName;
     }
 
     /// <summary>
@@ -539,27 +680,40 @@ public static class CustomInventoryManager
         return new SlotWrapper(slot, lockedSlotTuple);
     }
 
-    private static void FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack)
+    /// <summary>
+    ///     Attempts to merge <paramref name="stack" /> into the stackable currently occupying
+    ///     <paramref name="targetSlot" />.
+    /// </summary>
+    /// <param name="targetSlot">The destination hand slot.</param>
+    /// <param name="selectedSlot">The slot containing the source stack (used to skip self-merges).</param>
+    /// <param name="stack">The source stackable being merged.</param>
+    /// <param name="remainingQuantity">Expected remaining source quantity prior to this call.</param>
+    /// <returns>The expected remaining source quantity after this call.</returns>
+    private static int FillHandSlot(Slot targetSlot, Slot selectedSlot, Stackable stack, int remainingQuantity)
     {
         Plugin.Log.LogDebug(
             $"Hand {SlotHelper.GetSlotDisplayName(targetSlot)} occupant: {targetSlot.Get()?.DisplayName}");
         if (targetSlot.Get() == null ||
             targetSlot.Get() == selectedSlot.Get())
-            return;
+            return remainingQuantity;
 
         var targetStack = targetSlot.Get() as Stackable;
         if (targetStack == null || !targetStack.CanStack(stack))
-            return;
+            return remainingQuantity;
 
-        // Merge the items into the target stack.
+        var transfer = Math.Min(remainingQuantity, targetStack.MaxQuantity - targetStack.Quantity);
+        if (transfer <= 0)
+            return remainingQuantity;
+
         Plugin.Log.LogInfo(
-            $"Merging {stack.Quantity} items into {SlotHelper.GetSlotDisplayName(targetSlot)} which has {targetStack.Quantity} items.");
-        OnServer.Merge(targetStack, stack);
-        // The source stack will now contain the remaining quantity or zero.
-        Plugin.Log.LogDebug($"Target quantity: {targetStack.Quantity} Source quantity: {stack.Quantity}");
+            $"Merging {transfer} items into {SlotHelper.GetSlotDisplayName(targetSlot)} which has {targetStack.Quantity} items.");
+        Thing.Merge(targetStack, stack);
+        var newRemaining = remainingQuantity - transfer;
+        Plugin.Log.LogDebug($"Expected remaining source quantity: {newRemaining}");
 
-        if (stack.Quantity <= 0)
+        if (newRemaining <= 0)
             UIAudioManager.Play(UIAudioManager.AddToInventoryHash);
+        return newRemaining;
     }
 
     private static IEnumerable<Slot> FindSlotsOfHuman(ICollection<InteractableType> excludeTypes)
