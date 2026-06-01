@@ -118,8 +118,12 @@ public class SaveLockedSlotsPatches
     [HarmonyPostfix]
     [HarmonyPatch(typeof(SaveHelper), nameof(SaveHelper.RenameStation))]
     [HarmonyWrapSafe]
-    // ReSharper disable once InconsistentNaming
-    public static void RenameStation_Postfix(string oldStationName, string newStationName, bool __result, string __state)
+    public static void RenameStation_Postfix(string oldStationName,
+        string newStationName,
+        // ReSharper disable once InconsistentNaming
+        bool __result,
+        // ReSharper disable once InconsistentNaming
+        string __state)
     {
         if (!__result || string.IsNullOrEmpty(__state))
             return;
