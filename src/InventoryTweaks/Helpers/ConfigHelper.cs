@@ -152,7 +152,27 @@ internal static class ConfigHelper
     public static class SmartStow
     {
         private const string PriorityDescriptionSuffix = " Lower priority wins. Set to 0 to disable.";
-        private static readonly AcceptableValueRange<int> PriorityRange = new(0, 25);
+
+        private const string DescriptionPriorityExistingStack =
+            "Prefer occupied stacks of the same item with room to merge." + PriorityDescriptionSuffix;
+
+        private const string DescriptionPriorityLockedSlot =
+            "Prefer empty slots locked to this item." + PriorityDescriptionSuffix;
+
+        private const string DescriptionPriorityVisibleWindow =
+            "Prefer slots in visible inventory windows." + PriorityDescriptionSuffix;
+
+        private const string DescriptionPriorityTypedSlot =
+            "Prefer empty typed slots matching the item (e.g. tool slot for tools)." + PriorityDescriptionSuffix;
+
+        private const string DescriptionPriorityEmptyRegularSlot =
+            "Prefer empty regular (untyped, unlocked) slots." + PriorityDescriptionSuffix;
+
+        private const string DescriptionOnlyVisibleWindows =
+            """
+            When true, Smart Stow only considers slots that belong to visible inventory windows.
+            Slots inside closed windows are excluded entirely.
+            """;
 
         private const string DescriptionAllowReagentMerging =
             """
@@ -166,6 +186,8 @@ internal static class ConfigHelper
             for example on multiplayer clients where the source recipe is not visible.
             """;
 
+        private static readonly AcceptableValueRange<int> PriorityRange = new(0, 25);
+
         private static ConfigEntry<int> _configPriorityExistingStack;
         private static ConfigEntry<int> _configPriorityLockedSlot;
         private static ConfigEntry<int> _configPriorityTypedSlot;
@@ -175,9 +197,29 @@ internal static class ConfigHelper
         private static ConfigEntry<bool> _configAllowReagentMerging;
 
         /// <summary>
-        ///     Enabled sort criteria in priority order, rebuilt when configuration changes.
+        ///     Priority for merging into occupied stacks of the same item with room to spare.
         /// </summary>
-        public static IReadOnlyList<SmartStowSortCriterion> OrderedCriteria { get; private set; }
+        public static int PriorityExistingStack => _configPriorityExistingStack.Value;
+
+        /// <summary>
+        ///     Priority for placing into empty slots locked to this item.
+        /// </summary>
+        public static int PriorityLockedSlot => _configPriorityLockedSlot.Value;
+
+        /// <summary>
+        ///     Priority for placing into empty typed slots that match the item (e.g. tool slot for tools).
+        /// </summary>
+        public static int PriorityTypedSlot => _configPriorityTypedSlot.Value;
+
+        /// <summary>
+        ///     Priority for placing into empty regular (untyped, unlocked) slots.
+        /// </summary>
+        public static int PriorityEmptyRegularSlot => _configPriorityEmptyRegularSlot.Value;
+
+        /// <summary>
+        ///     Priority for placing into slots that belong to visible inventory windows.
+        /// </summary>
+        public static int PriorityVisibleWindow => _configPriorityVisibleWindow.Value;
 
         /// <summary>
         ///     When true, Smart Stow excludes slots that belong to inventory windows that are not currently visible.
@@ -193,51 +235,77 @@ internal static class ConfigHelper
         public static bool AllowReagentMerging => _configAllowReagentMerging.Value;
 
         /// <summary>
+        ///     Enabled sort criteria in priority order, rebuilt when configuration changes.
+        /// </summary>
+        public static IReadOnlyList<SmartStowSortCriterion> OrderedCriteria { get; private set; }
+
+        /// <summary>
         ///     Initializes Smart Stow priority configuration and builds the initial criteria order.
         /// </summary>
         /// <param name="configFile">The BepInEx configuration file instance.</param>
         public static void InitConfig(ConfigFile configFile)
         {
             _configPriorityExistingStack = BindPriority(configFile,
-                "PriorityExistingStack",
-                1,
-                "Prefer occupied stacks of the same item with room to merge." + PriorityDescriptionSuffix);
+                nameof(PriorityExistingStack),
+                1, // Default: prefer merging into existing stacks first
+                DescriptionPriorityExistingStack);
 
             _configPriorityLockedSlot = BindPriority(configFile,
-                "PriorityLockedSlot",
-                2,
-                "Prefer empty slots locked to this item." + PriorityDescriptionSuffix);
+                nameof(PriorityLockedSlot),
+                2, // Default: prefer item-locked slots second
+                DescriptionPriorityLockedSlot);
 
             _configPriorityVisibleWindow = BindPriority(configFile,
-                "PriorityVisibleWindow",
-                3,
-                "Prefer slots in visible inventory windows." + PriorityDescriptionSuffix);
+                nameof(PriorityVisibleWindow),
+                3, // Default: prefer slots in visible windows third
+                DescriptionPriorityVisibleWindow);
 
             _configPriorityTypedSlot = BindPriority(configFile,
-                "PriorityTypedSlot",
-                4,
-                "Prefer empty typed slots matching the item (e.g. tool slot for tools)." + PriorityDescriptionSuffix);
+                nameof(PriorityTypedSlot),
+                4, // Default: prefer typed slots fourth
+                DescriptionPriorityTypedSlot);
 
             _configPriorityEmptyRegularSlot = BindPriority(configFile,
-                "PriorityEmptyRegularSlot",
-                5,
-                "Prefer empty regular (untyped, unlocked) slots." + PriorityDescriptionSuffix);
+                nameof(PriorityEmptyRegularSlot),
+                5, // Default: prefer empty regular slots last
+                DescriptionPriorityEmptyRegularSlot);
 
             _configOnlyVisibleWindows = configFile.Bind(nameof(SmartStow),
-                "OnlyVisibleWindows",
-                false,
-                "When true, Smart Stow only considers slots that belong to visible inventory windows. " +
-                "Slots inside closed windows are excluded entirely.");
+                nameof(OnlyVisibleWindows),
+                false, // Disabled by default
+                DescriptionOnlyVisibleWindows);
 
             _configAllowReagentMerging = configFile.Bind(nameof(SmartStow),
                 nameof(AllowReagentMerging),
-                true,
+                true, // Enabled by default
                 DescriptionAllowReagentMerging);
 
+            // Set up event handler to automatically rebuild the ordered criteria when configuration changes
             configFile.SettingChanged += ConfigFileOnSettingChanged;
+
+            // Initialize the ordered criteria with the current configuration
             OrderedCriteria = BuildOrderedCriteria();
         }
 
+        /// <summary>
+        ///     Event handler that automatically rebuilds the ordered criteria list when configuration changes.
+        ///     This ensures that runtime changes to priority values are immediately reflected without requiring a restart.
+        /// </summary>
+        /// <param name="sender">The configuration file that triggered the change</param>
+        /// <param name="e">Event arguments containing information about the changed setting</param>
+        private static void ConfigFileOnSettingChanged(object sender, SettingChangedEventArgs e)
+        {
+            OrderedCriteria = BuildOrderedCriteria();
+        }
+
+        /// <summary>
+        ///     Binds a Smart Stow priority entry to the configuration file with the shared priority range validator.
+        /// </summary>
+        /// <param name="configFile">The BepInEx configuration file instance.</param>
+        /// <param name="key">The configuration key for this priority entry.</param>
+        /// <param name="defaultValue">The default priority value when no user value is present.</param>
+        /// <param name="description">The user-facing description of the priority entry.</param>
+        /// <returns>The bound configuration entry.</returns>
         private static ConfigEntry<int> BindPriority(ConfigFile configFile,
             string key,
             int defaultValue,
@@ -249,20 +317,20 @@ internal static class ConfigHelper
                 new ConfigDescription(description, PriorityRange));
         }
 
-        private static void ConfigFileOnSettingChanged(object sender, SettingChangedEventArgs e)
-        {
-            OrderedCriteria = BuildOrderedCriteria();
-        }
-
+        /// <summary>
+        ///     Builds the ordered list of enabled sort criteria from the current priority configuration.
+        ///     Criteria with a priority of 0 are excluded; remaining criteria are sorted by ascending priority.
+        /// </summary>
+        /// <returns>Read-only list of enabled criteria in evaluation order.</returns>
         private static IReadOnlyList<SmartStowSortCriterion> BuildOrderedCriteria()
         {
             return new (SmartStowSortCriterion criterion, int priority)[]
                 {
-                    (SmartStowSortCriterion.ExistingStack, _configPriorityExistingStack.Value),
-                    (SmartStowSortCriterion.LockedSlot, _configPriorityLockedSlot.Value),
-                    (SmartStowSortCriterion.TypedSlot, _configPriorityTypedSlot.Value),
-                    (SmartStowSortCriterion.EmptyRegularSlot, _configPriorityEmptyRegularSlot.Value),
-                    (SmartStowSortCriterion.VisibleWindow, _configPriorityVisibleWindow.Value)
+                    (SmartStowSortCriterion.ExistingStack, PriorityExistingStack),
+                    (SmartStowSortCriterion.LockedSlot, PriorityLockedSlot),
+                    (SmartStowSortCriterion.TypedSlot, PriorityTypedSlot),
+                    (SmartStowSortCriterion.EmptyRegularSlot, PriorityEmptyRegularSlot),
+                    (SmartStowSortCriterion.VisibleWindow, PriorityVisibleWindow)
                 }
                 .Where(x => x.priority > 0)
                 .OrderBy(x => x.priority)
