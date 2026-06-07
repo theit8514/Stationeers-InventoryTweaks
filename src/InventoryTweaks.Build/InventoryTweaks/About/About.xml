@@ -2,7 +2,7 @@
 <ModMetadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <Name>Inventory Tweaks</Name>
     <Author>theit8514</Author>
-    <Version>0.4.8</Version>
+    <Version>0.4.9</Version>
     <!-- Don't update this version manually, it is updated by the build process -->
     <Description><![CDATA[[h1]Inventory Tweaks[/h1]
         This mod is designed to improve the inventory management aspect of Stationeers.
@@ -22,6 +22,12 @@
         This mod is open source and available from [url=https://github.com/theit8514/Stationeers-InventoryTweaks]theit8514/Stationeers-InventoryTweaks[/url] on GitHub
     ]]></Description>
     <ChangeLog><![CDATA[
+        0.4.9:
+        - Added configurable Smart Stow slot priority, letting you order existing stacks, locked slots, typed slots, regular slots, and visible windows to your preference (#10)
+        - Fixed Smart Stow stacking in multiplayer by routing stack merges through the network so quantities sync correctly
+        - Reagent Mix merging is now guarded on multiplayer clients where recipes are not synced, with configurable fall-through merging and additional reagent logging
+        - Sidecar save files are now renamed automatically when a station is renamed, preventing orphaned InventoryTweaks data
+
         0.4.8:
         - Rebuild of previous version to fix Console Print errors
 
