@@ -81,6 +81,9 @@ The configuration file is \Stationeers\BepInEx\config\InventoryTweaks.cfg and wi
   prefabs.
   Players can still manually place items in these slots if desired. For example, "ItemHardSuit:Programmable Chip"
   prevents automated stow from placing programmable chips in the chip slot of hard suits.
+  Both sides support glob-style "*" wildcards (matching any run of characters, including none) and are matched
+  case-insensitively. For example, "*:Output" excludes every prefab's slot named "Output", "ItemHardSuit:*" excludes
+  every slot on the ItemHardSuit prefab, and "*:Output*" excludes any slot whose name starts with "Output".
 
 ## Smart Stow Priorities
 

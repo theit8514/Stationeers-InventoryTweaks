@@ -46,7 +46,12 @@ internal static class ConfigHelper
             This prevents automated stowing from placing specific items in certain slots of specific prefabs.
             Players can still manually place items in these slots if desired.
             Entries should be separated by commas.
-            Example: ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip
+            Both sides support glob-style "*" wildcards (matching any run of characters, including none)
+            and are matched case-insensitively:
+              - "*:Output" excludes every prefab's slot named "Output".
+              - "ItemHardSuit:*" excludes every slot on the ItemHardSuit prefab.
+              - "Appliance*:*" excludes any slot of all appliances.
+            Example: ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip,Appliance*:*,*:Output
             """;
 
         private static ConfigEntry<bool> _configEnableRewriteOpenSlots;
@@ -59,11 +64,11 @@ internal static class ConfigHelper
         public static string SlotExclusions => _configSlotExclusions.Value;
 
         /// <summary>
-        ///     Cached dictionary of slot exclusions for efficient runtime lookup.
-        ///     Key: PrefabName, Value: HashSet of excluded slot names.
-        ///     This cache is automatically updated when the configuration changes.
+        ///     Cached, compiled list of slot exclusion rules for efficient runtime lookup.
+        ///     Each rule carries glob-style prefab and slot patterns parsed from the configuration.
+        ///     This cache is automatically rebuilt when the configuration changes.
         /// </summary>
-        public static Dictionary<string, HashSet<string>> SlotExclusionsDictionary { get; set; }
+        public static IReadOnlyList<SlotExclusionRule> SlotExclusionRules { get; private set; }
 
         /// <summary>
         ///     Initializes the configuration system and sets up event handlers.
@@ -88,14 +93,14 @@ internal static class ConfigHelper
 
             _configSlotExclusions = configFile.Bind(nameof(General),
                 nameof(SlotExclusions),
-                "ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip", // Default exclusions
+                "ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip,Appliance*:*,*:Output", // Default exclusions
                 DescriptionSlotExclusions);
 
             // Set up event handler to automatically update the cache when configuration changes
             configFile.SettingChanged += ConfigFileOnSettingChanged;
 
             // Initialize the cache with the current configuration
-            SlotExclusionsDictionary = GetSlotExclusions();
+            SlotExclusionRules = BuildSlotExclusionRules();
         }
 
         /// <summary>
@@ -106,17 +111,17 @@ internal static class ConfigHelper
         /// <param name="e">Event arguments containing information about the changed setting</param>
         private static void ConfigFileOnSettingChanged(object sender, SettingChangedEventArgs e)
         {
-            SlotExclusionsDictionary = GetSlotExclusions();
+            SlotExclusionRules = BuildSlotExclusionRules();
         }
 
         /// <summary>
-        ///     Parses the slot exclusions configuration into a dictionary for efficient lookup.
-        ///     Key: PrefabName, Value: HashSet of excluded slot names
+        ///     Parses the slot exclusions configuration into a compiled list of rules for efficient lookup.
+        ///     Each entry is "PrefabPattern:SlotPattern", where both sides may use glob-style "*" wildcards.
         /// </summary>
-        /// <returns>Dictionary containing parsed slot exclusions</returns>
-        private static Dictionary<string, HashSet<string>> GetSlotExclusions()
+        /// <returns>Read-only list of compiled slot exclusion rules.</returns>
+        private static IReadOnlyList<SlotExclusionRule> BuildSlotExclusionRules()
         {
-            var exclusions = new Dictionary<string, HashSet<string>>();
+            var rules = new List<SlotExclusionRule>();
 
             var exclusionEntries = SlotExclusions.Split(',');
             foreach (var exclusion in exclusionEntries)
@@ -132,16 +137,12 @@ internal static class ConfigHelper
                     continue;
                 }
 
-                var prefabName = parts[0].Trim();
-                var slotName = parts[1].Trim();
-
-                if (!exclusions.ContainsKey(prefabName))
-                    exclusions[prefabName] = new HashSet<string>();
-
-                exclusions[prefabName].Add(slotName);
+                var prefabPattern = parts[0].Trim();
+                var slotPattern = parts[1].Trim();
+                rules.Add(SlotExclusionRule.Create(prefabPattern, slotPattern));
             }
 
-            return exclusions;
+            return rules;
         }
     }
 

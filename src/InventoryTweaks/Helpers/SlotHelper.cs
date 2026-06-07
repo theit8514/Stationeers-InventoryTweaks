@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 
@@ -22,7 +23,9 @@ internal static class SlotHelper
 
     /// <summary>
     ///     Checks if a slot is excluded for a specific item based on configuration.
-    ///     Uses the cached slot exclusions dictionary for optimal performance.
+    ///     Evaluates the cached, compiled slot exclusion rules. Both the prefab name and the slot name
+    ///     support glob-style "*" wildcards and are matched case-insensitively, so entries such as
+    ///     "*:Output", "ItemHardSuit:*" and "*:Output*" are all honored.
     /// </summary>
     /// <param name="slot">The slot to check</param>
     /// <param name="item">The item to check against exclusions</param>
@@ -33,12 +36,10 @@ internal static class SlotHelper
             return false;
 
         var parentPrefabName = slot.Parent.PrefabName;
-        if (!ConfigHelper.General.SlotExclusionsDictionary.TryGetValue(parentPrefabName, out var excludedSlots))
-            return false;
-
         var slotName = !string.IsNullOrWhiteSpace(slot.DisplayName) ? slot.DisplayName : slot.Parent?.DisplayName;
 
-        return excludedSlots.Contains(slotName);
+        var rules = ConfigHelper.General.SlotExclusionRules;
+        return rules.Any(t => t.Matches(parentPrefabName, slotName));
     }
 
     /// <summary>
