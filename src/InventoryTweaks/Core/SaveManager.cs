@@ -197,7 +197,8 @@ public static class SaveManager
         }
         catch (Exception ex)
         {
-            Plugin.Log.LogError("Failed to rename InventoryTweaks sidecar during station rename. Check log for more information.");
+            Plugin.Log.LogError(
+                "Failed to rename InventoryTweaks sidecar during station rename. Check log for more information.");
             Plugin.Log.LogInfo(ex);
         }
     }

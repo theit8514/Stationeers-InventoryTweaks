@@ -504,7 +504,8 @@ public static class CustomInventoryManager
     ///     <see langword="false" /> for items where same-prefab merges are unsafe (e.g. Reagent Mix
     ///     Slag, where two stacks may share a prefab but carry different reagent recipes).
     /// </param>
-    private static bool DoubleClickMoveToInventory(Slot selectedSlot, SlotWrapper[] targetSlots,
+    private static bool DoubleClickMoveToInventory(Slot selectedSlot,
+        SlotWrapper[] targetSlots,
         bool allowMerging = true)
     {
         var thing = selectedSlot.Get();

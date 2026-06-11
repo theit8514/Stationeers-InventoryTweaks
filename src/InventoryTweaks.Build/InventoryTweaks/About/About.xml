@@ -68,9 +68,9 @@
         - Fixed lock slots being filled with Smart Stow
     ]]></ChangeLog>
     <WorkshopHandle>3573053238</WorkshopHandle>
-    <Tags />
-    <Dependencies />
-    <LoadBefore />
-    <LoadAfter />
-    <InGameDescription xsi:nil="true" />
+    <Tags/>
+    <Dependencies/>
+    <LoadBefore/>
+    <LoadAfter/>
+    <InGameDescription xsi:nil="true"/>
 </ModMetadata>
