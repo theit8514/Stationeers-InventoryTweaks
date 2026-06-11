@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using BepInEx.Configuration;
 using InventoryTweaks.Data;
@@ -9,8 +11,63 @@ internal static class ConfigHelper
 {
     public static void LoadConfig(ConfigFile configFile)
     {
+        // Capture this before binding any entries: the first Bind call creates and saves the file,
+        // so a missing file here reliably means a brand-new config that needs no migration.
+        var isFreshConfig = !File.Exists(configFile.ConfigFilePath);
+
         General.InitConfig(configFile);
         SmartStow.InitConfig(configFile);
+
+        Migrations.Apply(isFreshConfig);
+    }
+
+    /// <summary>
+    ///     Versioned configuration migrations. A hidden <c>General/ConfigVersion</c> entry records
+    ///     how many migration steps have been applied. On startup, any steps newer than the stored
+    ///     version run in order, then the version is stamped to the latest. Brand-new configs are
+    ///     stamped to the latest immediately and skip all steps, since their defaults are current.
+    /// </summary>
+    public static class Migrations
+    {
+        /// <summary>
+        ///     Ordered migration steps. Index <c>i</c> upgrades a config from version <c>i</c> to
+        ///     <c>i + 1</c>. Append new steps to the end; never reorder or remove existing ones.
+        /// </summary>
+        private static readonly Action[] Steps =
+        {
+            SmartStow.MigrateInsertBodySlotPriority // v0 -> v1
+        };
+
+        private static int LatestVersion => Steps.Length;
+
+        /// <summary>
+        ///     Applies any outstanding migration steps based on the stored <see cref="General.ConfigVersion" />.
+        /// </summary>
+        /// <param name="isFreshConfig">
+        ///     <see langword="true" /> when no config file existed prior to this load, meaning the
+        ///     bound defaults are already current and no migration is required.
+        /// </param>
+        public static void Apply(bool isFreshConfig)
+        {
+            if (isFreshConfig)
+            {
+                General.ConfigVersion = LatestVersion;
+                return;
+            }
+
+            // Legacy configs created before versioning have no key and therefore read as version 0.
+            var fromVersion = Math.Max(0, Math.Min(General.ConfigVersion, LatestVersion));
+            if (fromVersion >= LatestVersion)
+                return;
+
+            for (var version = fromVersion; version < LatestVersion; version++)
+            {
+                Plugin.Log.LogInfo($"Migrating InventoryTweaks config from version {version} to {version + 1}");
+                Steps[version]();
+            }
+
+            General.ConfigVersion = LatestVersion;
+        }
     }
 
     public static class General
@@ -54,14 +111,31 @@ internal static class ConfigHelper
             Example: ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip,Appliance*:*,*:Output
             """;
 
+        private const string DescriptionConfigVersion =
+            """
+            Internal config schema version used to apply automatic migrations between mod updates.
+            Do not edit this value by hand.
+            """;
+
         private static ConfigEntry<bool> _configEnableRewriteOpenSlots;
         private static ConfigEntry<bool> _configEnableSaveLockedSlots;
         private static ConfigEntry<bool> _configEnableOverrideInventorySelect;
         private static ConfigEntry<string> _configSlotExclusions;
+        private static ConfigEntry<int> _configVersion;
         public static bool EnableRewriteOpenSlots => _configEnableRewriteOpenSlots.Value;
         public static bool EnableSaveLockedSlots => _configEnableSaveLockedSlots.Value;
         public static bool EnableOverrideInventorySelect => _configEnableOverrideInventorySelect.Value;
         public static string SlotExclusions => _configSlotExclusions.Value;
+
+        /// <summary>
+        ///     Hidden config schema version, owned by <see cref="Migrations" />. Records how many
+        ///     migration steps have been applied so future updates can upgrade older config files.
+        /// </summary>
+        public static int ConfigVersion
+        {
+            get => _configVersion.Value;
+            set => _configVersion.Value = value;
+        }
 
         /// <summary>
         ///     Cached, compiled list of slot exclusion rules for efficient runtime lookup.
@@ -95,6 +169,17 @@ internal static class ConfigHelper
                 nameof(SlotExclusions),
                 "ItemHardSuit:Programmable Chip,ItemSuitHARM:Chip,Appliance*:*,*:Output", // Default exclusions
                 DescriptionSlotExclusions);
+
+            // Legacy configs created before versioning have no key and therefore read as version 0.
+            _configVersion = configFile.Bind(nameof(General),
+                nameof(ConfigVersion),
+                0,
+                new ConfigDescription(DescriptionConfigVersion,
+                    null,
+                    // Hide from the BepInEx Configuration Manager UI...
+                    new ConfigurationManagerAttributes { Browsable = false, IsAdvanced = true },
+                    // ...and from the StationeersLaunchPad config UI, which reads its own tags.
+                    new KeyValuePair<string, bool>("Visible", false)));
 
             // Set up event handler to automatically update the cache when configuration changes
             configFile.SettingChanged += ConfigFileOnSettingChanged;
@@ -169,6 +254,10 @@ internal static class ConfigHelper
         private const string DescriptionPriorityEmptyRegularSlot =
             "Prefer empty regular (untyped, unlocked) slots." + PriorityDescriptionSuffix;
 
+        private const string DescriptionPriorityBodySlot =
+            "Prefer empty slots on the player's body/hands over slots nested in containers." +
+            PriorityDescriptionSuffix;
+
         private const string DescriptionOnlyVisibleWindows =
             """
             When true, Smart Stow only considers slots that belong to visible inventory windows.
@@ -193,6 +282,7 @@ internal static class ConfigHelper
         private static ConfigEntry<int> _configPriorityLockedSlot;
         private static ConfigEntry<int> _configPriorityTypedSlot;
         private static ConfigEntry<int> _configPriorityEmptyRegularSlot;
+        private static ConfigEntry<int> _configPriorityBodySlot;
         private static ConfigEntry<int> _configPriorityVisibleWindow;
         private static ConfigEntry<bool> _configOnlyVisibleWindows;
         private static ConfigEntry<bool> _configAllowReagentMerging;
@@ -216,6 +306,11 @@ internal static class ConfigHelper
         ///     Priority for placing into empty regular (untyped, unlocked) slots.
         /// </summary>
         public static int PriorityEmptyRegularSlot => _configPriorityEmptyRegularSlot.Value;
+
+        /// <summary>
+        ///     Priority for placing into empty slots on the player's body/hands over container slots.
+        /// </summary>
+        public static int PriorityBodySlot => _configPriorityBodySlot.Value;
 
         /// <summary>
         ///     Priority for placing into slots that belong to visible inventory windows.
@@ -266,9 +361,14 @@ internal static class ConfigHelper
                 4, // Default: prefer typed slots fourth
                 DescriptionPriorityTypedSlot);
 
+            _configPriorityBodySlot = BindPriority(configFile,
+                nameof(PriorityBodySlot),
+                5, // Default: prefer the player's own body/hand slots over container slots
+                DescriptionPriorityBodySlot);
+
             _configPriorityEmptyRegularSlot = BindPriority(configFile,
                 nameof(PriorityEmptyRegularSlot),
-                5, // Default: prefer empty regular slots last
+                6, // Default: prefer empty regular slots last
                 DescriptionPriorityEmptyRegularSlot);
 
             _configOnlyVisibleWindows = configFile.Bind(nameof(SmartStow),
@@ -319,6 +419,19 @@ internal static class ConfigHelper
         }
 
         /// <summary>
+        ///     Migration step (config v0 -> v1): <see cref="PriorityBodySlot" /> was introduced with a
+        ///     default of 5, which collided with the original <see cref="PriorityEmptyRegularSlot" />
+        ///     default of 5. On legacy configs that still carry the old value, shift empty regular slots
+        ///     to 6 so body slots sort ahead of them. Customized values (anything other than 5) are left
+        ///     untouched.
+        /// </summary>
+        internal static void MigrateInsertBodySlotPriority()
+        {
+            if (PriorityEmptyRegularSlot == 5)
+                _configPriorityEmptyRegularSlot.Value = 6;
+        }
+
+        /// <summary>
         ///     Builds the ordered list of enabled sort criteria from the current priority configuration.
         ///     Criteria with a priority of 0 are excluded; remaining criteria are sorted by ascending priority.
         /// </summary>
@@ -331,6 +444,7 @@ internal static class ConfigHelper
                     (SmartStowSortCriterion.LockedSlot, PriorityLockedSlot),
                     (SmartStowSortCriterion.TypedSlot, PriorityTypedSlot),
                     (SmartStowSortCriterion.EmptyRegularSlot, PriorityEmptyRegularSlot),
+                    (SmartStowSortCriterion.BodySlot, PriorityBodySlot),
                     (SmartStowSortCriterion.VisibleWindow, PriorityVisibleWindow)
                 }
                 .Where(x => x.priority > 0)

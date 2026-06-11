@@ -1,3 +1,4 @@
+using Assets.Scripts.Inventory;
 using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Items;
 using Assets.Scripts.UI;
@@ -19,13 +20,27 @@ public class SlotWrapper
 
     public Slot Slot { get; }
     private InventoryWindow Window => Slot.Display?.ParentWindow;
-    public bool IsVisible => Window?.IsVisible ?? false;
+
+    /// <summary>
+    ///     True when this slot belongs directly to the player's human (its body or hand slots).
+    ///     These slots live on the HUD and never receive a <see cref="InventoryWindow" />, unlike
+    ///     nested container slots whose display button is assigned a parent window.
+    /// </summary>
+    public bool IsRootHumanSlot => Slot.Parent == InventoryManager.ParentHuman;
+
+    /// <summary>
+    ///     True when this slot is currently visible to the player. Root human (body/hand) slots
+    ///     live directly on the HUD and are always on-screen, so they are always visible. Nested
+    ///     slots are visible only when their owning inventory window exists and is shown; a slot
+    ///     whose window has not been created yet (or has been created and closed) is not visible.
+    /// </summary>
+    public bool IsVisible => IsRootHumanSlot || (Window?.IsVisible ?? false);
 
     /// <summary>
     ///     True when this slot belongs to an inventory window that exists but is not currently visible.
-    ///     Slots that have no associated window (e.g. player body slots) return false.
+    ///     Root human (body/hand) slots have no window and are never considered hidden.
     /// </summary>
-    public bool IsInHiddenWindow => Window != null && !Window.IsVisible;
+    public bool IsInHiddenWindow => !IsRootHumanSlot && Window != null && !Window.IsVisible;
 
     public DynamicThing Occupant => Slot.Get();
     public bool IsOccupied => Occupant != null;
@@ -78,6 +93,7 @@ public class SlotWrapper
                                                  && LockedToPrefabHash == prefabHash,
             SmartStowSortCriterion.TypedSlot => !IsOccupied && IsOfSlotType(slotType),
             SmartStowSortCriterion.EmptyRegularSlot => !IsOccupied && !IsLocked,
+            SmartStowSortCriterion.BodySlot => !IsOccupied && IsRootHumanSlot,
             SmartStowSortCriterion.VisibleWindow => IsVisible,
             _ => false
         };
